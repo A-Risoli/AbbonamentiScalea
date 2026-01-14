@@ -1,0 +1,35 @@
+[project]
+name = "abbonamenti"
+version = "0.1.0"
+description = "Secure subscription archiving system for municipal police office"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "cryptography>=46.0.3",
+    "matplotlib>=3.10.8",
+    "pyqt6>=6.10.2",
+]
+
+[project.scripts]
+abbonamenti = "abbonamenti.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.11",
+]
