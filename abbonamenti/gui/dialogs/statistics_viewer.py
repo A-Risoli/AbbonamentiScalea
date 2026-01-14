@@ -86,16 +86,18 @@ class StatCard(QWidget):
             layout.addWidget(self.subtitle_label)
         
         # Styling
-        self.setStyleSheet("""
-            StatCard {
-                background-color: white;
-                border: 1px solid #E0E0E0;
+        self.setStyleSheet(
+            f"""
+            StatCard {{
+                background-color: {get_color('card_bg')};
+                border: 1px solid {get_color('border')};
                 border-radius: 8px;
-            }
-            StatCard:hover {
-                border: 1px solid #2196F3;
-            }
-        """)
+            }}
+            StatCard:hover {{
+                border: 1px solid {get_color('primary')};
+            }}
+            """
+        )
     
     def update_value(self, value: str):
         """Update the value displayed in the card"""
@@ -112,12 +114,14 @@ class ChartWidget(QWidget):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.figure = Figure(figsize=(8, 6), dpi=100)
+        self.figure = Figure(figsize=(8, 6), dpi=100, facecolor=get_color("card_bg"))
         self.canvas = FigureCanvas(self.figure)
+        self.canvas.setStyleSheet("background: transparent;")
         
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.canvas)
+        self.setAutoFillBackground(False)
     
     def clear(self):
         """Clear the figure"""
@@ -126,6 +130,20 @@ class ChartWidget(QWidget):
     def draw(self):
         """Redraw the canvas"""
         self.canvas.draw()
+
+    def style_axes(self, ax):
+        """Apply theme-aware colors to axes"""
+        ax.set_facecolor(get_color("surface"))
+        ax.tick_params(colors=get_color("text_primary"))
+        for spine in ax.spines.values():
+            spine.set_color(get_color("border"))
+        ax.xaxis.label.set_color(get_color("text_primary"))
+        ax.yaxis.label.set_color(get_color("text_primary"))
+        ax.title.set_color(get_color("text_primary"))
+
+    def style_grid(self, ax):
+        grid_color = get_color("border")
+        ax.grid(True, alpha=0.3, linestyle="--", color=grid_color)
 
 
 class StatisticsViewer(QDialog):
@@ -204,21 +222,28 @@ class StatisticsViewer(QDialog):
         
         # Tabs for different charts
         self.tabs = QTabWidget()
-        self.tabs.setStyleSheet("""
-            QTabWidget::pane {
-                border: 1px solid #E0E0E0;
-                background-color: white;
+        self.tabs.setStyleSheet(
+            f"""
+            QTabWidget::pane {{
+                border: 1px solid {get_color('border')};
+                background-color: {get_color('card_bg')};
                 border-radius: 4px;
-            }
-            QTabBar::tab {
+            }}
+            QTabBar::tab {{
                 padding: 8px 16px;
                 margin-right: 2px;
-            }
-            QTabBar::tab:selected {
-                background-color: #2196F3;
+                background: {get_color('surface')};
+                color: {get_color('text_primary')};
+            }}
+            QTabBar::tab:selected {{
+                background-color: {get_color('primary')};
                 color: white;
-            }
-        """)
+            }}
+            QTabBar::tab:hover:!selected {{
+                background-color: {get_color('light')};
+            }}
+            """
+        )
         
         # Monthly revenue chart
         self.monthly_chart = ChartWidget()
@@ -352,13 +377,14 @@ class StatisticsViewer(QDialog):
             ax.set_xlabel('Mese', fontsize=11, fontweight='bold')
             ax.set_ylabel('Incassi (€)', fontsize=11, fontweight='bold')
             ax.set_title('Incassi Mensili', fontsize=13, fontweight='bold', pad=15)
-            ax.grid(True, alpha=0.3, linestyle='--')
+            self.monthly_chart.style_grid(ax)
             ax.set_axisbelow(True)
         else:
             ax.text(0.5, 0.5, 'Nessun dato disponibile', 
                    ha='center', va='center', fontsize=14, color='#757575',
                    transform=ax.transAxes)
         
+        self.monthly_chart.style_axes(ax)
         self.monthly_chart.figure.tight_layout()
         self.monthly_chart.draw()
     
@@ -371,7 +397,7 @@ class StatisticsViewer(QDialog):
         if methods_data and any(v > 0 for v in methods_data.values()):
             labels = list(methods_data.keys())
             sizes = list(methods_data.values())
-            colors = [get_color('primary'), get_color('secondary')]
+            colors = [get_color('primary'), get_color('warning')]
             
             wedges, texts, autotexts = ax.pie(sizes, labels=labels, autopct='%1.1f%%',
                                                colors=colors, startangle=90,
@@ -389,6 +415,7 @@ class StatisticsViewer(QDialog):
                    ha='center', va='center', fontsize=14, color='#757575',
                    transform=ax.transAxes)
         
+        self.methods_chart.style_axes(ax)
         self.methods_chart.figure.tight_layout()
         self.methods_chart.draw()
     
@@ -420,7 +447,7 @@ class StatisticsViewer(QDialog):
             ax.set_xlabel('Periodo', fontsize=11, fontweight='bold')
             ax.set_ylabel('Incassi Cumulativi (€)', fontsize=11, fontweight='bold')
             ax.set_title('Trend Incassi nel Tempo', fontsize=13, fontweight='bold', pad=15)
-            ax.grid(True, alpha=0.3, linestyle='--')
+            self.trend_chart.style_grid(ax)
             ax.set_axisbelow(True)
             ax.legend()
         else:
@@ -428,6 +455,7 @@ class StatisticsViewer(QDialog):
                    ha='center', va='center', fontsize=14, color='#757575',
                    transform=ax.transAxes)
         
+        self.trend_chart.style_axes(ax)
         self.trend_chart.figure.tight_layout()
         self.trend_chart.draw()
     
@@ -455,12 +483,13 @@ class StatisticsViewer(QDialog):
             ax.set_ylabel('Numero Abbonamenti', fontsize=11, fontweight='bold')
             ax.set_title('Abbonamenti Creati per Mese', fontsize=13, 
                         fontweight='bold', pad=15)
-            ax.grid(True, alpha=0.3, linestyle='--', axis='y')
+            self.subscriptions_chart.style_grid(ax)
             ax.set_axisbelow(True)
         else:
             ax.text(0.5, 0.5, 'Nessun dato disponibile', 
                    ha='center', va='center', fontsize=14, color='#757575',
                    transform=ax.transAxes)
         
+        self.subscriptions_chart.style_axes(ax)
         self.subscriptions_chart.figure.tight_layout()
         self.subscriptions_chart.draw()

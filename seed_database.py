@@ -42,7 +42,7 @@ STREETS = [
     "Via dei Gonzaga", "Via Manzoni", "Via Boccaccio", "Via Petrarca",
 ]
 
-PAYMENT_METHODS = ["BOLLETTINO", "POS", "CREDIT_CARD"]
+PAYMENT_METHODS = ["Bollettino", "POS"]
 
 
 def generate_realistic_name() -> tuple[str, str]:
@@ -77,18 +77,16 @@ def generate_mobile() -> str:
 
 
 def get_payment_method_distribution(
-    bollettino_pct: float, pos_pct: float, credit_card_pct: float
+    bollettino_pct: float, pos_pct: float
 ) -> str:
     """Select payment method based on distribution percentages."""
-    total = bollettino_pct + pos_pct + credit_card_pct
+    total = bollettino_pct + pos_pct
     normalized = random() * 100
     
     if normalized < (bollettino_pct / total * 100):
-        return "BOLLETTINO"
-    elif normalized < ((bollettino_pct + pos_pct) / total * 100):
-        return "POS"
+        return "Bollettino"
     else:
-        return "CREDIT_CARD"
+        return "POS"
 
 
 def generate_sample_data(
@@ -97,7 +95,6 @@ def generate_sample_data(
     end_date: datetime,
     bollettino_pct: float,
     pos_pct: float,
-    credit_card_pct: float,
 ) -> dict:
     """Generate sample subscription data for a given index."""
     first_name, last_name = generate_realistic_name()
@@ -118,7 +115,7 @@ def generate_sample_data(
         "subscription_end": sub_end,
         "payment_details": round(50.0 + (index % 100) + random() * 50, 2),
         "payment_method": get_payment_method_distribution(
-            bollettino_pct, pos_pct, credit_card_pct
+            bollettino_pct, pos_pct
         ),
     }
 
@@ -129,7 +126,6 @@ def seed_database(
     end_date: datetime = None,
     bollettino_pct: float = 30.0,
     pos_pct: float = 50.0,
-    credit_card_pct: float = 20.0,
 ):
     """Populate database with sample subscription records."""
     if start_date is None:
@@ -138,10 +134,9 @@ def seed_database(
         end_date = datetime(2026, 3, 31)
     
     # Normalize percentages
-    total_pct = bollettino_pct + pos_pct + credit_card_pct
+    total_pct = bollettino_pct + pos_pct 
     bollettino_pct = (bollettino_pct / total_pct) * 100
     pos_pct = (pos_pct / total_pct) * 100
-    credit_card_pct = (credit_card_pct / total_pct) * 100
     
     db_path = get_database_path()
     keys_dir = get_keys_dir()
@@ -150,8 +145,8 @@ def seed_database(
 
     print(f"Starting to seed database with {count} records...")
     print(f"Date range: {start_date.date()} to {end_date.date()}")
-    print(f"Payment distribution: {bollettino_pct:.1f}% BOLLETTINO, "
-          f"{pos_pct:.1f}% POS, {credit_card_pct:.1f}% CREDIT_CARD")
+    print(f"Payment distribution: {bollettino_pct:.1f}% Bollettino, "
+          f"{pos_pct:.1f}% POS")
 
     for i in range(1, count + 1):
         data = generate_sample_data(
@@ -160,7 +155,6 @@ def seed_database(
             end_date,
             bollettino_pct,
             pos_pct,
-            credit_card_pct,
         )
         try:
             protocol_id = db_manager.add_subscription(
@@ -212,10 +206,6 @@ def main():
         "--pos", type=float, default=50.0,
         help="Percentage of POS payments (default: 50.0)"
     )
-    parser.add_argument(
-        "--credit-card", type=float, default=20.0,
-        help="Percentage of CREDIT_CARD payments (default: 20.0)"
-    )
     
     args = parser.parse_args()
     
@@ -236,7 +226,6 @@ def main():
         end_date=end_date,
         bollettino_pct=args.bollettino,
         pos_pct=args.pos,
-        credit_card_pct=args.credit_card,
     )
     
     return success

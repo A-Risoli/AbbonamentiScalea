@@ -61,7 +61,9 @@ class AddEditSubscriptionDialog(QDialog):
             if self.subscription is None
             else self.subscription.protocol_id
         )
-        self.protocol_input.setStyleSheet("background-color: #F5F5F5;")
+        self.protocol_input.setStyleSheet(
+            f"background-color: {get_color('surface')}; color: {get_color('text_primary')};"
+        )
         info_layout.addRow("ID Protocollo:", self.protocol_input)
 
         self.owner_input = QLineEdit()

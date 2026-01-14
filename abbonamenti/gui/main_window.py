@@ -2,7 +2,7 @@ import sys
 from datetime import datetime
 
 from PyQt6.QtCore import Qt, pyqtSlot
-from PyQt6.QtGui import QAction, QIcon
+from PyQt6.QtGui import QAction, QIcon, QPalette
 from PyQt6.QtWidgets import (
     QDialog,
     QHeaderView,
@@ -45,6 +45,12 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("AbbonaMunicipale - Sistema Abbonamenti Città di Scalea")
         self.setMinimumSize(1400, 900)
         self.resize(1600, 1000)
+
+        # Set window icon if available
+        from pathlib import Path
+        icon_path = Path(__file__).parent.parent.parent / "assets" / "icon.ico"
+        if icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
 
         # Apply modern stylesheet
         self.setStyleSheet(get_stylesheet())
@@ -111,11 +117,14 @@ class MainWindow(QMainWindow):
         self.addToolBar(toolbar)
 
         self.integrity_label = QLabel("Integrità Dati: ")
+        label_color = toolbar.palette().color(QPalette.ColorRole.WindowText).name()
+        self.integrity_label.setStyleSheet(f"color: {label_color}; background: transparent;")
         toolbar.addWidget(self.integrity_label)
 
         self.integrity_indicator = QLabel("✓")
         self.integrity_indicator.setStyleSheet(
             "color: green; font-weight: bold; font-size: 14px; padding: 0px 8px;"
+            "background: transparent;"
         )
         self.integrity_indicator.setToolTip("Tutti i dati sono validi e sicuri")
         toolbar.addWidget(self.integrity_indicator)
@@ -255,13 +264,13 @@ class MainWindow(QMainWindow):
         if is_valid:
             self.integrity_indicator.setText("✓")
             self.integrity_indicator.setStyleSheet(
-                "color: green; font-weight: bold; font-size: 16px;"
+                "color: green; font-weight: bold; font-size: 16px; background: transparent;"
             )
             self.integrity_indicator.setToolTip("Tutti i dati sono validi e sicuri")
         else:
             self.integrity_indicator.setText("✗")
             self.integrity_indicator.setStyleSheet(
-                "color: red; font-weight: bold; font-size: 16px;"
+                "color: red; font-weight: bold; font-size: 16px; background: transparent;"
             )
             tooltip_text = "Problemi di integrità rilevati:\n" + "\n".join(issues)
             self.integrity_indicator.setToolTip(tooltip_text)
@@ -514,9 +523,10 @@ class MainWindow(QMainWindow):
             self,
             "Informazioni",
             "AbbonaMunicipale\n"
+            "\n\nRisoli Antonio\n\n"
             "Sistema Abbonamenti Città di Scalea\n\n"
             "Sicuro, affidabile, facile da usare.\n\n"
-            "Versione 1.0.0",
+            "Versione 0.0.0",
         )
 
 
