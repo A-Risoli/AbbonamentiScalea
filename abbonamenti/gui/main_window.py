@@ -26,7 +26,9 @@ from abbonamenti.gui.dialogs.add_edit_dialog import (
     DeleteSubscriptionDialog,
 )
 from abbonamenti.gui.dialogs.audit_viewer import AuditLogViewer
+from abbonamenti.gui.dialogs.backup_dialog import BackupDialog
 from abbonamenti.gui.dialogs.import_dialog import ImportDialog
+from abbonamenti.gui.dialogs.restore_dialog import RestoreDialog
 from abbonamenti.gui.dialogs.statistics_viewer import StatisticsViewer
 from abbonamenti.gui.models import SubscriptionsTableModel
 from abbonamenti.gui.styles import get_stylesheet
@@ -85,6 +87,12 @@ class MainWindow(QMainWindow):
         backup_action = QAction("Backup Database", self)
         backup_action.triggered.connect(self.backup_database)
         tools_menu.addAction(backup_action)
+
+        restore_action = QAction("Ripristina Backup", self)
+        restore_action.triggered.connect(self.restore_database)
+        tools_menu.addAction(restore_action)
+
+        tools_menu.addSeparator()
 
         audit_action = QAction("Visualizza Log Audit", self)
         audit_action.triggered.connect(self.show_audit_log)
@@ -206,6 +214,9 @@ class MainWindow(QMainWindow):
 
         # Enable sorting
         self.table_view.setSortingEnabled(True)
+        
+        # Set default sort order: Protocol ID descending (newest first)
+        self.table_view.sortByColumn(0, Qt.SortOrder.DescendingOrder)
 
         # Set row height for better visibility
         self.table_view.verticalHeader().setDefaultSectionSize(28)
@@ -540,7 +551,58 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot()
     def backup_database(self):
-        QMessageBox.information(self, "Info", "Funzionalità di backup in sviluppo")
+        """Open backup dialog to create encrypted backup"""
+        dialog = BackupDialog(self.db_manager, self)
+        dialog.backup_completed.connect(self.on_backup_completed)
+        dialog.exec()
+    
+    @pyqtSlot(str)
+    def on_backup_completed(self, backup_path: str):
+        """Handle successful backup completion"""
+        from pathlib import Path
+        import os
+        
+        self.status_bar.showMessage(
+            f"✓ Backup creato: {Path(backup_path).name}", 5000
+        )
+        
+        # Ask if user wants to open folder
+        reply = QMessageBox.question(
+            self,
+            "Backup Completato",
+            f"Backup salvato in:\n{backup_path}\n\nVuoi aprire la cartella?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            os.startfile(str(Path(backup_path).parent))
+
+    @pyqtSlot()
+    def restore_database(self):
+        """Open restore dialog to restore encrypted backup"""
+        dialog = RestoreDialog(self.db_manager, self)
+        dialog.restore_completed.connect(self.on_restore_completed)
+        dialog.exec()
+    
+    @pyqtSlot()
+    def on_restore_completed(self):
+        """Handle successful restore completion - reload data"""
+        # Reload all data from restored database
+        self.load_data()
+        
+        # Re-check integrity
+        self.check_data_integrity()
+        
+        # Show success message
+        QMessageBox.information(
+            self,
+            "Ripristino Completato",
+            "Il database è stato ripristinato con successo!\n\n"
+            "I dati sono stati ricaricati automaticamente."
+        )
+        
+        self.status_bar.showMessage("✓ Database ripristinato con successo", 5000)
 
     @pyqtSlot()
     def show_about(self):

@@ -5,6 +5,7 @@ from pathlib import Path
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes, hmac, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.serialization import (
     Encoding,
     PrivateFormat,
@@ -65,6 +66,55 @@ class CryptoManager:
             return True
         except Exception:
             return False
+
+
+def derive_key_from_passphrase(passphrase: str, salt: bytes | None = None) -> tuple[bytes, bytes]:
+    """
+    Derive a 32-byte encryption key from a passphrase using PBKDF2.
+    
+    Args:
+        passphrase: User passphrase (minimum 16 characters)
+        salt: Optional salt (if None, generates new random salt)
+        
+    Returns:
+        Tuple of (derived_key, salt)
+        
+    Raises:
+        ValueError: If passphrase is less than 16 characters
+    """
+    if len(passphrase) < 16:
+        raise ValueError("Passphrase deve essere di almeno 16 caratteri")
+    
+    if salt is None:
+        salt = os.urandom(32)
+    
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=10,
+    )
+    
+    key = kdf.derive(passphrase.encode('utf-8'))
+    return key, salt
+
+
+def encrypt_with_key(data: bytes, key: bytes) -> bytes:
+    """Encrypt data with a derived key using Fernet."""
+    fernet = Fernet(Fernet.generate_key())  # Use key directly
+    # Convert 32-byte key to Fernet-compatible format
+    import base64
+    fernet_key = base64.urlsafe_b64encode(key)
+    fernet = Fernet(fernet_key)
+    return fernet.encrypt(data)
+
+
+def decrypt_with_key(encrypted_data: bytes, key: bytes) -> bytes:
+    """Decrypt data with a derived key using Fernet."""
+    import base64
+    fernet_key = base64.urlsafe_b64encode(key)
+    fernet = Fernet(fernet_key)
+    return fernet.decrypt(encrypted_data)
 
 
 class KeyManager:

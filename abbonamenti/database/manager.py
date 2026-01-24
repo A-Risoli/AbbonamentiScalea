@@ -2,14 +2,17 @@ import base64
 
 import json
 import os
+import shutil
 import socket
 import sqlite3
+import tempfile
+import zipfile
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 from abbonamenti.database.schema import AuditLogEntry, Schema, Subscription
-from abbonamenti.security.crypto import CryptoManager
+from abbonamenti.security.crypto import CryptoManager, derive_key_from_passphrase, encrypt_with_key, decrypt_with_key
 from abbonamenti.security.hmac import HMACManager
 
 
@@ -937,3 +940,262 @@ class DatabaseManager:
             conn.close()
             return False, str(e)
 
+    def perform_secure_backup(
+        self,
+        output_dir: Path,
+        passphrase: str,
+        progress_callback: Optional[callable] = None,
+    ) -> tuple[bool, str]:
+        """
+        Create an encrypted backup of the database and keys.
+        
+        Steps:
+        1. VACUUM INTO a temporary database snapshot
+        2. Zip the database + crypto/HMAC keys (exclude configs)
+        3. Encrypt with PBKDF2-derived key from passphrase
+        4. Save as .enc file with metadata
+        5. Clean up temporary files
+        
+        Args:
+            output_dir: Directory to save backup file
+            passphrase: User passphrase (minimum 16 characters)
+            progress_callback: Optional callback(step, total_steps, message)
+            
+        Returns:
+            Tuple of (success, message_or_error)
+        """
+        temp_db = None
+        temp_zip = None
+        
+        try:
+            # Step 1: Derive encryption key
+            if progress_callback:
+                progress_callback(1, 6, "Generazione chiave di cifratura...")
+            
+            key, salt = derive_key_from_passphrase(passphrase)
+            
+            # Step 2: Create safe SQLite snapshot
+            if progress_callback:
+                progress_callback(2, 6, "Creazione snapshot database...")
+            
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            temp_db = Path(tempfile.gettempdir()) / f"temp_backup_{timestamp}.db"
+            
+            conn = sqlite3.connect(self.db_path)
+            conn.execute(f"VACUUM INTO '{temp_db}'")
+            conn.close()
+            
+            # Step 3: Create zip with DB + keys
+            if progress_callback:
+                progress_callback(3, 6, "Compressione database e chiavi...")
+            
+            temp_zip = Path(tempfile.gettempdir()) / f"temp_backup_{timestamp}.zip"
+            
+            with zipfile.ZipFile(temp_zip, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                # Add database
+                zipf.write(temp_db, "database.db")
+                
+                # Add only crypto and HMAC keys (exclude RSA keys, configs, logs)
+                keys_dir = self.db_path.parent / "keys"
+                fernet_key = keys_dir / "fernet_key.bin"
+                hmac_key = keys_dir / "hmac_key.bin"
+                
+                if fernet_key.exists():
+                    zipf.write(fernet_key, "keys/fernet_key.bin")
+                if hmac_key.exists():
+                    zipf.write(hmac_key, "keys/hmac_key.bin")
+            
+            # Step 4: Encrypt the archive
+            if progress_callback:
+                progress_callback(4, 6, "Cifratura backup...")
+            
+            with open(temp_zip, 'rb') as f:
+                archive_data = f.read()
+            
+            encrypted_data = encrypt_with_key(archive_data, key)
+            
+            # Step 5: Write encrypted file with metadata
+            if progress_callback:
+                progress_callback(5, 6, "Salvataggio backup cifrato...")
+            
+            output_dir = Path(output_dir)
+            output_dir.mkdir(parents=True, exist_ok=True)
+            
+            backup_filename = f"scalea_backup_{timestamp}.enc"
+            backup_path = output_dir / backup_filename
+            
+            # Write metadata header + encrypted data
+            with open(backup_path, 'wb') as f:
+                # Header: version(1) + salt(32) + encrypted_data
+                f.write(b'\x01')  # Version 1
+                f.write(salt)
+                f.write(encrypted_data)
+            
+            # Step 6: Cleanup
+            if progress_callback:
+                progress_callback(6, 6, "Pulizia file temporanei...")
+            
+            if temp_db and temp_db.exists():
+                temp_db.unlink()
+            if temp_zip and temp_zip.exists():
+                temp_zip.unlink()
+            
+            return True, str(backup_path)
+            
+        except ValueError as e:
+            # Passphrase validation error
+            if temp_db and temp_db.exists():
+                temp_db.unlink()
+            if temp_zip and temp_zip.exists():
+                temp_zip.unlink()
+            return False, str(e)
+            
+        except Exception as e:
+            # Other errors
+            if temp_db and temp_db.exists():
+                temp_db.unlink()
+            if temp_zip and temp_zip.exists():
+                temp_zip.unlink()
+            return False, f"Errore durante il backup: {str(e)}"
+    def restore_secure_backup(
+        self,
+        backup_path: Path,
+        passphrase: str,
+        progress_callback: Optional[callable] = None,
+    ) -> tuple[bool, str]:
+        """
+        Restore database and keys from an encrypted backup.
+        
+        CAUTION: This will replace the current database and keys!
+        
+        Steps:
+        1. Read encrypted backup file and extract salt
+        2. Derive decryption key from passphrase
+        3. Decrypt the archive
+        4. Extract database and keys to temporary location
+        5. Replace current database and keys atomically
+        
+        Args:
+            backup_path: Path to .enc backup file
+            passphrase: User passphrase used during backup
+            progress_callback: Optional callback(step, total_steps, message)
+            
+        Returns:
+            Tuple of (success, message_or_error)
+        """
+        temp_dir = None
+        
+        try:
+            backup_path = Path(backup_path)
+            
+            if not backup_path.exists():
+                return False, "File di backup non trovato"
+            
+            # Step 1: Read backup file
+            if progress_callback:
+                progress_callback(1, 5, "Lettura backup cifrato...")
+            
+            with open(backup_path, 'rb') as f:
+                version = f.read(1)
+                if version != b'\x01':
+                    return False, "Versione backup non supportata"
+                
+                salt = f.read(32)
+                encrypted_data = f.read()
+            
+            # Step 2: Derive key
+            if progress_callback:
+                progress_callback(2, 5, "Derivazione chiave di cifratura...")
+            
+            key, _ = derive_key_from_passphrase(passphrase, salt)
+            
+            # Step 3: Decrypt
+            if progress_callback:
+                progress_callback(3, 5, "Decifratura backup...")
+            
+            try:
+                archive_data = decrypt_with_key(encrypted_data, key)
+            except Exception:
+                return False, "Passphrase non corretta o backup danneggiato"
+            
+            # Step 4: Extract to temp
+            if progress_callback:
+                progress_callback(4, 5, "Estrazione database e chiavi...")
+            
+            temp_dir = Path(tempfile.mkdtemp())
+            temp_zip = temp_dir / "backup.zip"
+            
+            with open(temp_zip, 'wb') as f:
+                f.write(archive_data)
+            
+            with zipfile.ZipFile(temp_zip, 'r') as zipf:
+                zipf.extractall(temp_dir)
+            
+            # Step 5: Replace current files atomically
+            if progress_callback:
+                progress_callback(5, 5, "Ripristino database e chiavi...")
+            
+            # Create backup of current files
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            current_backup_dir = self.db_path.parent / f"pre_restore_backup_{timestamp}"
+            current_backup_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Backup current database
+            if self.db_path.exists():
+                shutil.copy2(self.db_path, current_backup_dir / "database.db")
+            
+            # Backup current keys
+            keys_dir = self.db_path.parent / "keys"
+            if keys_dir.exists():
+                shutil.copytree(keys_dir, current_backup_dir / "keys", dirs_exist_ok=True)
+            
+            try:
+                # Replace database
+                restored_db = temp_dir / "database.db"
+                if restored_db.exists():
+                    shutil.copy2(restored_db, self.db_path)
+                else:
+                    return False, "Database non trovato nel backup"
+                
+                # Replace keys
+                restored_keys = temp_dir / "keys"
+                if restored_keys.exists():
+                    # Ensure keys directory exists
+                    keys_dir.mkdir(parents=True, exist_ok=True)
+                    
+                    # Copy each key file
+                    for key_file in restored_keys.iterdir():
+                        if key_file.is_file():
+                            shutil.copy2(key_file, keys_dir / key_file.name)
+                
+                # Reinitialize crypto managers with restored keys
+                self.crypto = CryptoManager(keys_dir)
+                self.hmac = HMACManager(keys_dir)
+                
+                # Cleanup temp
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                
+                return True, f"Backup ripristinato con successo. Backup precedente salvato in:\n{current_backup_dir}"
+                
+            except Exception as e:
+                # Restore failed, rollback to current backup
+                if current_backup_dir.exists():
+                    if (current_backup_dir / "database.db").exists():
+                        shutil.copy2(current_backup_dir / "database.db", self.db_path)
+                    if (current_backup_dir / "keys").exists():
+                        shutil.rmtree(keys_dir, ignore_errors=True)
+                        shutil.copytree(current_backup_dir / "keys", keys_dir)
+                
+                return False, f"Errore durante il ripristino (rollback eseguito): {str(e)}"
+            
+        except ValueError as e:
+            # Passphrase validation error
+            if temp_dir and temp_dir.exists():
+                shutil.rmtree(temp_dir, ignore_errors=True)
+            return False, str(e)
+            
+        except Exception as e:
+            # Other errors
+            if temp_dir and temp_dir.exists():
+                shutil.rmtree(temp_dir, ignore_errors=True)
+            return False, f"Errore durante il ripristino: {str(e)}"
