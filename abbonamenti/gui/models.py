@@ -74,6 +74,8 @@ class SubscriptionsTableModel(QAbstractTableModel):
                     return QColor(255, 255, 200)
                 elif status == "Scaduto":
                     return QColor(255, 200, 200)
+                elif status == "Non ancora attivo":
+                    return QColor(220, 220, 255)
 
         elif role == Qt.ItemDataRole.TextAlignmentRole:
             if column in [6, 7, 8, 9, 10]:
@@ -96,9 +98,12 @@ class SubscriptionsTableModel(QAbstractTableModel):
 
     def _get_status(self, subscription: Subscription) -> str:
         today = datetime.now().date()
+        start_date = subscription.subscription_start.date()
         end_date = subscription.subscription_end.date()
 
-        if end_date < today:
+        if start_date > today:
+            return "Non ancora attivo"
+        elif end_date < today:
             return "Scaduto"
         elif (end_date - today).days <= 30:
             return "In scadenza"

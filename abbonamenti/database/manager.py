@@ -43,23 +43,22 @@ class DatabaseManager:
 
     def _get_protocol_id(self) -> str:
         year = datetime.now().year
-        year_short = str(year)[2:]
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute(
             "SELECT protocol_id FROM subscriptions WHERE protocol_id LIKE ? ORDER BY protocol_id DESC LIMIT 1",
-            (f"SUB-{year_short}%",),
+            (f"{year}-%",),
         )
         result = cursor.fetchone()
         conn.close()
 
         if result:
-            last_id = int(result[0].split("-")[-1])
+            last_id = int(result[0].split("-")[1])
             new_id = last_id + 1
         else:
             new_id = 1
 
-        return f"SUB-{year_short}-{new_id:04d}"
+        return f"{year}-{new_id:010d}"
 
     def _update_integrity_signature(self, protocol_id: str):
         conn = sqlite3.connect(self.db_path)
@@ -124,6 +123,7 @@ class DatabaseManager:
         payment_method: str,
         reason: str,
     ) -> str:
+        payment_method = payment_method.strip().upper()
         protocol_id = self._get_protocol_id()
         now = datetime.now().isoformat()
         user_info = self._get_current_user_info()
@@ -204,6 +204,7 @@ class DatabaseManager:
         payment_method: str,
         reason: str,
     ) -> bool:
+        payment_method = payment_method.strip().upper()
         before_data = self.get_subscription_raw(protocol_id)
         if not before_data:
             return False
@@ -365,6 +366,19 @@ class DatabaseManager:
             })
 
         return subscriptions
+
+    @staticmethod
+    def _normalize_payment_method(method: str) -> str:
+        """Normalize payment method variants to canonical labels."""
+        if not method:
+            return ""
+        normalized = method.strip().upper()
+        # Common variants mapping
+        if normalized in {"POS", "CARD", "CARTE", "CARTA"}:
+            return "POS"
+        if normalized.startswith("BOLL") or normalized.startswith("BOL"):
+            return "BOLLETTINO"
+        return normalized
 
     def get_all_subscriptions(self) -> list[Subscription]:
         conn = sqlite3.connect(self.db_path)
@@ -605,8 +619,15 @@ class DatabaseManager:
         subscription_count = len(filtered_subs)
         average_payment = total_revenue / subscription_count if subscription_count > 0 else 0.0
         
-        pos_count = sum(1 for sub in filtered_subs if sub["payment_method"] == "POS")
-        bollettino_count = sum(1 for sub in filtered_subs if sub["payment_method"] == "Bollettino")
+        pos_count = 0
+        bollettino_count = 0
+        for sub in filtered_subs:
+            method = sub.get("payment_method", "")
+            method_normalized = self._normalize_payment_method(method)
+            if method_normalized == "POS":
+                pos_count += 1
+            elif method_normalized == "BOLLETTINO":
+                bollettino_count += 1
 
         return {
             "total_revenue": total_revenue,
@@ -649,10 +670,12 @@ class DatabaseManager:
         if month:
             subs = [sub for sub in subs if sub["subscription_start"].month == month]
 
-        methods = {"POS": 0, "Bollettino": 0}
+        methods = {"POS": 0, "BOLLETTINO": 0}
         for sub in subs:
-            if sub["payment_method"] in methods:
-                methods[sub["payment_method"]] += 1
+            method = sub.get("payment_method", "")
+            method_normalized = self._normalize_payment_method(method)
+            if method_normalized in methods:
+                methods[method_normalized] += 1
 
         return methods
 
@@ -704,3 +727,213 @@ class DatabaseManager:
 
         # Sort by date label
         return sorted(monthly.items(), key=lambda x: x[0])
+
+    def get_subscriptions_by_plate(
+        self, license_plate: str
+    ) -> list[dict]:
+        """
+        Get all subscriptions for a specific license plate.
+        
+        Args:
+            license_plate: The license plate to search for
+            
+        Returns:
+            List of subscription dictionaries with decrypted start/end dates
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            """SELECT protocol_id, owner_name, license_plate, 
+               subscription_start, subscription_end
+               FROM subscriptions 
+               WHERE UPPER(license_plate) = UPPER(?)
+               ORDER BY subscription_start""",
+            (license_plate,),
+        )
+        
+        rows = cursor.fetchall()
+        conn.close()
+        
+        subscriptions = []
+        for row in rows:
+            subscriptions.append({
+                "protocol_id": row[0],
+                "owner_name": row[1],
+                "license_plate": row[2],
+                "subscription_start": datetime.fromisoformat(row[3]),
+                "subscription_end": datetime.fromisoformat(row[4]),
+            })
+        
+        return subscriptions
+
+    def bulk_add_subscriptions(
+        self,
+        subscriptions: list[dict],
+        reason: str,
+        progress_callback: Optional[callable] = None,
+    ) -> tuple[bool, str]:
+        """
+        Add multiple subscriptions in a single transaction.
+        
+        Args:
+            subscriptions: List of subscription dictionaries with keys:
+                owner_name, license_plate, email, address, mobile,
+                subscription_start, subscription_end, payment_details, payment_method
+            reason: Audit log reason for all subscriptions
+            progress_callback: Optional callback(current, total) for progress updates
+            
+        Returns:
+            Tuple of (success, error_message)
+        """
+        conn = sqlite3.connect(self.db_path)
+        conn.execute("BEGIN TRANSACTION")
+        
+        try:
+            total = len(subscriptions)
+            user_info = self._get_current_user_info()
+
+            cursor = conn.cursor()
+
+            # Precompute next protocol id base for this transaction to avoid collisions
+            year = datetime.now().year
+            cursor.execute(
+                "SELECT protocol_id FROM subscriptions WHERE protocol_id LIKE ? ORDER BY protocol_id DESC LIMIT 1",
+                (f"{year}-%",),
+            )
+            result = cursor.fetchone()
+            last_id = int(result[0].split("-")[1]) if result else 0
+
+            for idx, sub_data in enumerate(subscriptions):
+                next_id = last_id + idx + 1
+                protocol_id = f"{year}-{next_id:010d}"
+                now = datetime.now().isoformat()
+                
+                # Encrypt sensitive fields
+                email_encrypted = self.crypto.encrypt(sub_data.get("email", ""))
+                address_encrypted = self.crypto.encrypt(sub_data.get("address", ""))
+                mobile_encrypted = self.crypto.encrypt(sub_data.get("mobile", ""))
+                payment_details_encrypted = self.crypto.encrypt(
+                    str(sub_data["payment_details"])
+                )
+                
+                # Insert subscription
+                cursor.execute(
+                    """INSERT INTO subscriptions 
+                    (protocol_id, owner_name, license_plate, email_encrypted, 
+                     address_encrypted, mobile_encrypted,
+                     subscription_start, subscription_end, payment_details_encrypted, 
+                     payment_method, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        protocol_id,
+                        sub_data["owner_name"],
+                        sub_data["license_plate"],
+                        email_encrypted,
+                        address_encrypted,
+                        mobile_encrypted,
+                        sub_data["subscription_start"].isoformat(),
+                        sub_data["subscription_end"].isoformat(),
+                        payment_details_encrypted,
+                        sub_data["payment_method"],
+                        now,
+                        now,
+                    ),
+                )
+                
+                # Create HMAC signature
+                # Get the row we just inserted
+                cursor.execute(
+                    "SELECT * FROM subscriptions WHERE protocol_id = ?", (protocol_id,)
+                )
+                row = cursor.fetchone()
+                
+                if row:
+                    columns = [
+                        "protocol_id",
+                        "owner_name",
+                        "license_plate",
+                        "email_encrypted",
+                        "address_encrypted",
+                        "mobile_encrypted",
+                        "subscription_start",
+                        "subscription_end",
+                        "payment_details_encrypted",
+                        "payment_method",
+                        "created_at",
+                        "updated_at",
+                    ]
+                    data = dict(zip(columns, row))
+                    data["email_encrypted"] = base64.b64encode(
+                        data["email_encrypted"]
+                    ).decode("utf-8")
+                    data["address_encrypted"] = base64.b64encode(
+                        data["address_encrypted"]
+                    ).decode("utf-8")
+                    data["mobile_encrypted"] = base64.b64encode(
+                        data["mobile_encrypted"]
+                    ).decode("utf-8")
+                    data["payment_details_encrypted"] = base64.b64encode(
+                        data["payment_details_encrypted"]
+                    ).decode("utf-8")
+                    
+                    signature = self.hmac.generate_hmac(data)
+                    
+                    cursor.execute(
+                        """INSERT INTO data_integrity 
+                        (table_name, record_id, signature, created_at) 
+                        VALUES (?, ?, ?, ?)""",
+                        (
+                            "subscriptions",
+                            protocol_id,
+                            signature,
+                            datetime.now().isoformat(),
+                        ),
+                    )
+                
+                # Add audit log entry
+                subscription_data = {
+                    "protocol_id": protocol_id,
+                    "owner_name": sub_data["owner_name"],
+                    "license_plate": sub_data["license_plate"],
+                    "email": sub_data.get("email", ""),
+                    "address": sub_data.get("address", ""),
+                    "mobile": sub_data.get("mobile", ""),
+                    "subscription_start": sub_data["subscription_start"].isoformat(),
+                    "subscription_end": sub_data["subscription_end"].isoformat(),
+                    "payment_details": sub_data["payment_details"],
+                    "payment_method": sub_data["payment_method"],
+                    "created_at": now,
+                    "updated_at": now,
+                }
+                
+                cursor.execute(
+                    """INSERT INTO audit_log 
+                    (operation_type, protocol_id, user, reason, before_data, after_data, ip_address, computer_name, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        "INSERT",
+                        protocol_id,
+                        user_info["user"],
+                        reason,
+                        None,
+                        json.dumps(subscription_data, ensure_ascii=False),
+                        user_info["ip_address"],
+                        user_info["computer_name"],
+                        now,
+                    ),
+                )
+                
+                # Update progress
+                if progress_callback:
+                    progress_callback(idx + 1, total)
+            
+            conn.commit()
+            conn.close()
+            return True, ""
+            
+        except Exception as e:
+            conn.rollback()
+            conn.close()
+            return False, str(e)
+

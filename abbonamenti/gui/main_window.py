@@ -26,6 +26,7 @@ from abbonamenti.gui.dialogs.add_edit_dialog import (
     DeleteSubscriptionDialog,
 )
 from abbonamenti.gui.dialogs.audit_viewer import AuditLogViewer
+from abbonamenti.gui.dialogs.import_dialog import ImportDialog
 from abbonamenti.gui.dialogs.statistics_viewer import StatisticsViewer
 from abbonamenti.gui.models import SubscriptionsTableModel
 from abbonamenti.gui.styles import get_stylesheet
@@ -69,37 +70,21 @@ class MainWindow(QMainWindow):
         export_action.triggered.connect(self.export_data)
         file_menu.addAction(export_action)
 
+        self.import_action = QAction("Importa Excel", self)
+        self.import_action.triggered.connect(self.import_from_excel)
+        file_menu.addAction(self.import_action)
+
         file_menu.addSeparator()
 
         exit_action = QAction("Esci", self)
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
 
-        edit_menu = menubar.addMenu("&Modifica")
-
-        self.add_action = QAction("Nuovo Abbonamento", self)
-        self.add_action.triggered.connect(self.add_subscription)
-        edit_menu.addAction(self.add_action)
-
-        self.edit_action = QAction("Modifica Abbonamento", self)
-        self.edit_action.triggered.connect(self.edit_subscription)
-        edit_menu.addAction(self.edit_action)
-
-        self.delete_action = QAction("Elimina Abbonamento", self)
-        self.delete_action.triggered.connect(self.delete_subscription)
-        edit_menu.addAction(self.delete_action)
-
         tools_menu = menubar.addMenu("&Strumenti")
 
         backup_action = QAction("Backup Database", self)
         backup_action.triggered.connect(self.backup_database)
         tools_menu.addAction(backup_action)
-
-        tools_menu.addSeparator()
-
-        statistics_action = QAction("📊 Visualizza Statistiche", self)
-        statistics_action.triggered.connect(self.show_statistics)
-        tools_menu.addAction(statistics_action)
 
         audit_action = QAction("Visualizza Log Audit", self)
         audit_action.triggered.connect(self.show_audit_log)
@@ -180,8 +165,9 @@ class MainWindow(QMainWindow):
 
         # Statistics button
         stats_btn = QPushButton("📊 Statistiche")
-        stats_btn.setMinimumHeight(32)
-        stats_btn.setMinimumWidth(120)
+        stats_btn.setMinimumHeight(38)
+        stats_btn.setMinimumWidth(140)
+        stats_btn.setStyleSheet("font-weight: bold; font-size: 13px;")
         stats_btn.setToolTip("Visualizza statistiche pagamenti")
         stats_btn.clicked.connect(self.show_statistics)
         toolbar.addWidget(stats_btn)
@@ -240,6 +226,7 @@ class MainWindow(QMainWindow):
             self.add_btn.setEnabled(True)
             self.edit_btn.setEnabled(True)
             self.delete_btn.setEnabled(True)
+            self.import_action.setEnabled(True)
             self.status_bar.showMessage(
                 "✓ Modalità Modifica Attiva - Tutte le modifiche verranno registrate"
             )
@@ -248,6 +235,7 @@ class MainWindow(QMainWindow):
             self.add_btn.setEnabled(False)
             self.edit_btn.setEnabled(False)
             self.delete_btn.setEnabled(False)
+            self.import_action.setEnabled(False)
             self.status_bar.showMessage("Modalità sola lettura")
 
     @pyqtSlot()
@@ -301,6 +289,13 @@ class MainWindow(QMainWindow):
             f"✓ Attivi: {active} | ⚠ In scadenza: {expiring} | "
             f"✗ Scaduti: {expired} | Totale: {len(subscriptions)}"
         )
+
+    def load_data(self):
+        """Reload subscriptions into the table and refresh status/integrity."""
+        subscriptions = self.db_manager.get_all_subscriptions()
+        self.model.update_data(subscriptions)
+        self.update_status_bar()
+        self.check_data_integrity()
 
     @pyqtSlot()
     def add_subscription(self):
@@ -512,6 +507,36 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(
                 self, "Errore", f"Errore durante l'esportazione: {str(e)}"
             )
+
+    @pyqtSlot()
+    def import_from_excel(self):
+        """Open import dialog for bulk Excel import."""
+        if not self.edit_mode_enabled:
+            QMessageBox.warning(
+                self,
+                "Modalità Modifica Richiesta",
+                "Per importare abbonamenti è necessario attivare la Modalità Modifica.\n\n"
+                "Clicca sul pulsante '🔓 Modalità Modifica: OFF' nella toolbar per attivarla.",
+            )
+            return
+        
+        dialog = ImportDialog(self.db_manager, self)
+        dialog.import_completed.connect(self.on_import_completed)
+        dialog.exec()
+
+    @pyqtSlot(int)
+    def on_import_completed(self, count: int):
+        """Handle successful import completion."""
+        # Reload data to show new records
+        self.load_data()
+        
+        # Update status bar
+        self.status_bar.showMessage(
+            f"✓ Importati {count} abbonamenti con successo", 5000
+        )
+        
+        # Re-check integrity
+        self.check_data_integrity()
 
     @pyqtSlot()
     def backup_database(self):

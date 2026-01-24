@@ -265,7 +265,7 @@ class AddEditSubscriptionDialog(QDialog):
             "subscription_start": self.start_date_input.date().toPyDate(),
             "subscription_end": self.end_date_input.date().toPyDate(),
             "payment_details": self.payment_amount_input.value(),
-            "payment_method": self.payment_method_combo.currentText(),
+            "payment_method": self.payment_method_combo.currentText().strip().upper(),
             "reason": self.reason_input.text().strip(),
         }
 
