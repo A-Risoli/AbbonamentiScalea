@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
     QSplitter,
     QStatusBar,
+    QStyle,
     QTableView,
     QToolBar,
     QVBoxLayout,
@@ -28,6 +29,8 @@ from abbonamenti.gui.dialogs.add_edit_dialog import (
 from abbonamenti.gui.dialogs.audit_viewer import AuditLogViewer
 from abbonamenti.gui.dialogs.backup_dialog import BackupDialog
 from abbonamenti.gui.dialogs.import_dialog import ImportDialog
+from abbonamenti.gui.dialogs.key_export_dialog import KeyExportDialog
+from abbonamenti.gui.dialogs.key_import_dialog import KeyImportDialog
 from abbonamenti.gui.dialogs.restore_dialog import RestoreDialog
 from abbonamenti.gui.dialogs.statistics_viewer import StatisticsViewer
 from abbonamenti.gui.models import SubscriptionsTableModel
@@ -69,38 +72,63 @@ class MainWindow(QMainWindow):
         file_menu = menubar.addMenu("&File")
 
         export_action = QAction("Esporta CSV", self)
+        export_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton))
         export_action.triggered.connect(self.export_data)
         file_menu.addAction(export_action)
 
         self.import_action = QAction("Importa Excel", self)
+        self.import_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton))
         self.import_action.triggered.connect(self.import_from_excel)
         file_menu.addAction(self.import_action)
 
         file_menu.addSeparator()
 
         exit_action = QAction("Esci", self)
+        exit_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogCloseButton))
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
 
         tools_menu = menubar.addMenu("&Strumenti")
 
         backup_action = QAction("Backup Database", self)
+        backup_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon))
         backup_action.triggered.connect(self.backup_database)
         tools_menu.addAction(backup_action)
 
         restore_action = QAction("Ripristina Backup", self)
+        restore_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload))
         restore_action.triggered.connect(self.restore_database)
         tools_menu.addAction(restore_action)
 
         tools_menu.addSeparator()
 
+        key_export_action = QAction("🔑 Esporta Chiave di Recupero", self)
+        key_export_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton))
+        key_export_action.triggered.connect(self.export_recovery_keys)
+        key_export_action.setToolTip(
+            "CRITICO: Esporta le chiavi di cifratura per recuperare i backup"
+        )
+        tools_menu.addAction(key_export_action)
+
+        key_import_action = QAction("Ripristina Chiavi di Recupero", self)
+        key_import_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton))
+        key_import_action.triggered.connect(self.import_recovery_keys)
+        key_import_action.setToolTip(
+            "Usa il file chiavi .enc/.zip per poter aprire i backup cifrati"
+        )
+        tools_menu.addAction(key_import_action)
+
+        tools_menu.addSeparator()
+
         audit_action = QAction("Visualizza Log Audit", self)
+        audit_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxInformation))
         audit_action.triggered.connect(self.show_audit_log)
         tools_menu.addAction(audit_action)
 
         help_menu = menubar.addMenu("&Aiuto")
 
         about_action = QAction("Informazioni", self)
+        about_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxInformation))
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
 
@@ -605,6 +633,41 @@ class MainWindow(QMainWindow):
         self.status_bar.showMessage("✓ Database ripristinato con successo", 5000)
 
     @pyqtSlot()
+    def export_recovery_keys(self):
+        """Open key export dialog"""
+        from abbonamenti.utils.paths import get_keys_dir
+        
+        # Show critical warning first
+        reply = QMessageBox.warning(
+            self,
+            "⚠️ CHIAVI DI RECUPERO",
+            "Stai per esportare le CHIAVI DI CIFRATURA del database.\n\n"
+            "🔴 ATTENZIONE CRITICA:\n"
+            "Senza queste chiavi, TUTTI i backup del database sono INUTILI!\n"
+            "Se le chiavi vengono perse, i dati cifrati non potranno MAI\n"
+            "essere recuperati (nomi, targhe, indirizzi, email, telefoni).\n\n"
+            "📌 OBBLIGATORIO:\n"
+            "• Salva le chiavi su chiavetta USB separata\n"
+            "• Conservale in cassaforte\n"
+            "• Crea copie multiple in luoghi sicuri diversi\n\n"
+            "Vuoi procedere con l'esportazione?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            dialog = KeyExportDialog(get_keys_dir(), self)
+            dialog.exec()
+
+    @pyqtSlot()
+    def import_recovery_keys(self):
+        """Restore key backup (.enc or .zip) without terminal commands"""
+        from abbonamenti.utils.paths import get_keys_dir
+
+        dialog = KeyImportDialog(get_keys_dir(), self)
+        dialog.exec()
+
+    @pyqtSlot()
     def show_about(self):
         QMessageBox.about(
             self,
@@ -613,7 +676,7 @@ class MainWindow(QMainWindow):
             "\n\nRisoli Antonio\n\n"
             "Sistema Abbonamenti Città di Scalea\n\n"
             "Sicuro, affidabile, facile da usare.\n\n"
-            "Versione 0.0.0",
+            "Versione 0.1.1",
         )
 
 

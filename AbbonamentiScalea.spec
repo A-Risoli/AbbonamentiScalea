@@ -1,4 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
 from PyInstaller.utils.hooks import collect_data_files
 
 datas = []
@@ -6,7 +7,7 @@ datas += collect_data_files('matplotlib')
 
 
 a = Analysis(
-    ['C:\\Users\\risol\\Documents\\GitHub\\AbbonamentiScalea\\abbonamenti\\main.py'],
+    [os.path.join(os.getcwd(), 'abbonamenti', 'main.py')],
     pathex=[],
     binaries=[],
     datas=datas,
@@ -36,7 +37,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['C:\\Users\\risol\\Documents\\GitHub\\AbbonamentiScalea\\assets\\icon.ico'],
+        icon=[os.path.join(os.getcwd(), 'assets', 'icon.ico')] if os.path.exists(os.path.join(os.getcwd(), 'assets', 'icon.ico')) else None,
 )
 coll = COLLECT(
     exe,
