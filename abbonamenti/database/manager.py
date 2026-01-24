@@ -46,21 +46,38 @@ class DatabaseManager:
 
     def _get_protocol_id(self) -> str:
         year = datetime.now().year
+        year_short = str(year)[2:]
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
+        
+        # Check for new format (YYYY-XXXXXXXXXX)
         cursor.execute(
             "SELECT protocol_id FROM subscriptions WHERE protocol_id LIKE ? ORDER BY protocol_id DESC LIMIT 1",
             (f"{year}-%",),
         )
-        result = cursor.fetchone()
+        result_new = cursor.fetchone()
+        
+        # Check for old format (SUB-YY-XXXX) for backward compatibility
+        cursor.execute(
+            "SELECT protocol_id FROM subscriptions WHERE protocol_id LIKE ? ORDER BY protocol_id DESC LIMIT 1",
+            (f"SUB-{year_short}-%",),
+        )
+        result_old = cursor.fetchone()
+        
         conn.close()
 
-        if result:
-            last_id = int(result[0].split("-")[1])
-            new_id = last_id + 1
-        else:
-            new_id = 1
-
+        # Determine the highest sequence number from both formats
+        new_id = 0
+        
+        if result_new:
+            # Parse new format: 2026-0000000001 -> 1
+            new_id = max(new_id, int(result_new[0].split("-")[1]))
+        
+        if result_old:
+            # Parse old format: SUB-26-0001 -> 1
+            new_id = max(new_id, int(result_old[0].split("-")[2]))
+        
+        new_id += 1
         return f"{year}-{new_id:010d}"
 
     def _update_integrity_signature(self, protocol_id: str):
@@ -800,12 +817,27 @@ class DatabaseManager:
 
             # Precompute next protocol id base for this transaction to avoid collisions
             year = datetime.now().year
+            year_short = str(year)[2:]
+            
+            # Check both new and old formats for backward compatibility
             cursor.execute(
                 "SELECT protocol_id FROM subscriptions WHERE protocol_id LIKE ? ORDER BY protocol_id DESC LIMIT 1",
                 (f"{year}-%",),
             )
-            result = cursor.fetchone()
-            last_id = int(result[0].split("-")[1]) if result else 0
+            result_new = cursor.fetchone()
+            
+            cursor.execute(
+                "SELECT protocol_id FROM subscriptions WHERE protocol_id LIKE ? ORDER BY protocol_id DESC LIMIT 1",
+                (f"SUB-{year_short}-%",),
+            )
+            result_old = cursor.fetchone()
+            
+            # Get highest sequence number from both formats
+            last_id = 0
+            if result_new:
+                last_id = max(last_id, int(result_new[0].split("-")[1]))
+            if result_old:
+                last_id = max(last_id, int(result_old[0].split("-")[2]))
 
             for idx, sub_data in enumerate(subscriptions):
                 next_id = last_id + idx + 1
