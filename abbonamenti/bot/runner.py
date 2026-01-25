@@ -4,10 +4,17 @@ import asyncio
 import logging
 
 from PyQt6.QtCore import QThread, pyqtSignal
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
+from telegram.ext import (
+    ApplicationBuilder,
+    CallbackQueryHandler,
+    CommandHandler,
+    MessageHandler,
+    filters,
+)
 
 from abbonamenti.bot.config import BotConfig
 from abbonamenti.bot.handlers import (
+    button_callback_handler,
     handle_message,
     help_handler,
     initialize_handlers,
@@ -78,6 +85,9 @@ class BotThread(QThread):
             self.application.add_handler(CommandHandler("myid", myid_handler))
             self.application.add_handler(CommandHandler("help", help_handler))
 
+            # Add callback query handler for inline buttons
+            self.application.add_handler(CallbackQueryHandler(button_callback_handler))
+
             # Add message handler for direct text input (non-command)
             # Must be added AFTER CommandHandlers so commands are processed first
             self.application.add_handler(
@@ -88,8 +98,10 @@ class BotThread(QThread):
             self.status_changed.emit("running")
             logger.info("Bot Telegram avviato")
 
-            # Run polling (blocking call)
-            self.application.run_polling(allowed_updates=["message"])
+            # Run polling (blocking call) - include callback_query updates
+            self.application.run_polling(
+                allowed_updates=["message", "callback_query"]
+            )
 
         except Exception as e:
             error_msg = f"Errore bot: {e!s}"

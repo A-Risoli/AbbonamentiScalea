@@ -3,7 +3,7 @@
 import logging
 import time
 
-from telegram import ReplyKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ChatAction
 from telegram.ext import ContextTypes
 
@@ -36,24 +36,27 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     """
     Handler for /start command.
 
-    Shows welcome message with persistent keyboard buttons.
+    Shows welcome message with inline keyboard buttons.
     """
     if not update.message or not update.effective_user:
         return
 
     user_name = update.effective_user.first_name or "Agente"
 
-    # Create persistent keyboard
-    keyboard = [["🆔 Mio ID", "❓ Aiuto"]]
-    reply_markup = ReplyKeyboardMarkup(
-        keyboard, one_time_keyboard=False, resize_keyboard=True
-    )
+    # Create inline keyboard (buttons appear directly below the message)
+    keyboard = [
+        [
+            InlineKeyboardButton("🆔 Mio ID", callback_data="myid"),
+            InlineKeyboardButton("❓ Aiuto", callback_data="help"),
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
 
     welcome_text = (
         f"👋 Benvenuto {user_name}!\n\n"
         "Sono il bot di controllo abbonamenti. Puoi:\n\n"
         "📱 <b>Inviare una targa</b> (es: AB123CD)\n"
-        "🆔 <b>Visualizzare il tuo ID</b> con il pulsante a lato\n"
+        "🆔 <b>Visualizzare il tuo ID</b> con il pulsante qui sotto\n"
         "❓ <b>Leggere le istruzioni</b> con il pulsante aiuto\n\n"
         "Digita la targa senza spazi, il resto lo faccio io! 🚗"
     )
@@ -110,12 +113,60 @@ async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await update.message.reply_text(help_text, parse_mode="HTML")
 
 
+async def button_callback_handler(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """
+    Handler for inline button callbacks.
+
+    Routes button presses to appropriate handlers.
+    """
+    query = update.callback_query
+    if not query:
+        return
+
+    # CRITICAL: Answer callback immediately to prevent timeout
+    await query.answer()
+    
+    logger.info(f"Button pressed: {query.data} by user {query.from_user.id if query.from_user else 'unknown'}")
+
+    if query.data == "myid":
+        # Show user ID
+        if query.from_user:
+            user_id = query.from_user.id
+            await query.message.reply_text(
+                f"Il tuo User ID è: <code>{user_id}</code>", parse_mode="HTML"
+            )
+            logger.info(f"Sent user ID to {user_id}")
+                
+    elif query.data == "help":
+        # Show help text
+        help_text = (
+            "📖 <b>COME USARE IL BOT</b>\n\n"
+            "<b>1️⃣ Inviare una Targa</b>\n"
+            "Digita la targa senza spazi:\n"
+            "  • Valido: <code>AB123CD</code>\n"
+            "  • Valido: <code>AB 123 CD</code> (spazi rimossi automaticamente)\n\n"
+            "<b>2️⃣ Risposta del Bot</b>\n"
+            "✅ VALIDO - Abbonamento attivo\n"
+            "⚠️ SCADE PRESTO - Scade nei prossimi 30 giorni\n"
+            "❌ SCADUTO - Abbonamento non valido\n"
+            "❓ NON TROVATO - Targa non in database\n\n"
+            "<b>3️⃣ Limiti di Utilizzo</b>\n"
+            "Max 20 richieste al minuto per utente\n\n"
+            "<b>4️⃣ Il Tuo ID</b>\n"
+            "Usa il pulsante 🆔 per scoprire il tuo User ID"
+        )
+        await query.message.reply_text(help_text, parse_mode="HTML")
+        logger.info(f"Sent help to user {query.from_user.id if query.from_user else 'unknown'}")
+
+
 @require_authorized
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Handler for all text messages (non-command).
 
-    Detects button presses and plate queries.
+    Processes license plate queries.
     Requires authorization for plate checks.
     """
     if not update.message or not update.message.text or not update.effective_user:
@@ -125,16 +176,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     user_id = update.effective_user.id
     username = update.effective_user.username
 
-    # Detect button presses and route to handlers
-    if text == "🆔 Mio ID":
-        await myid_handler(update, context)
-        return
-
-    if text == "❓ Aiuto":
-        await help_handler(update, context)
-        return
-
-    # Everything else is treated as a license plate query
+    # Everything is treated as a license plate query
     # Sanitize input: remove spaces and uppercase
     plate = text.upper().replace(" ", "").strip()
 
