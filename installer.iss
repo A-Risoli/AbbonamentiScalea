@@ -7,7 +7,7 @@
 ; 3. Output will be in installer_output/
 
 #define MyAppName "AbbonamentiScalea"
-#define MyAppVersion "0.1.2"
+#define MyAppVersion "0.2.0"
 #define MyAppPublisher "Comune di Scalea"
 #define MyAppExeName "AbbonamentiScalea.exe"
 #define MyAppAssocName MyAppName + " Database"
