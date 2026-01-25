@@ -233,10 +233,6 @@ Per problemi o domande:
 
 ## 🚧 Roadmap
 
-- [ ] Aggiungere icona applicazione
-- [ ] Implementare backup automatico database
-- [ ] Report PDF stampabili
-- [ ] Import dati da Excel/CSV
 - [ ] Notifiche scadenza abbonamenti
 - [ ] Multi-utente con autenticazione
 
