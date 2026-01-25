@@ -7,7 +7,7 @@ Sistema sicuro e affidabile per la gestione degli abbonamenti parcheggio del Com
 ## 📋 Caratteristiche
 
 - ✅ **Gestione completa abbonamenti** - Inserimento, modifica, eliminazione con validazione
-- 🔐 **Sicurezza enterprise** - Crittografia AES-256, firma digitale RSA, HMAC per integrità dati
+- 🔐 **Sicurezza enterprise** - Crittografia Fernet, HMAC per integrità dati
 - 🤖 **Bot Telegram integrato** - Verifica validità targhe da remoto per agenti di polizia
 - 📊 **Statistiche avanzate** - Grafici interattivi per analisi incassi e pagamenti
 - 📝 **Audit trail completo** - Tracciamento di ogni operazione con timestamp e motivazione
@@ -95,7 +95,7 @@ Il bot Telegram consente agli agenti di polizia di verificare la validità delle
 
 - **Whitelist utenti**: Solo gli User ID configurati possono usare il bot
 - **Rate limiting**: Massimo 20 richieste/minuto per utente
-- **Token crittografato**: Il token viene salvato crittografato (AES-256)
+- **Token crittografato**: Il token viene salvato crittografato
 - **Log delle query**: Tutte le ricerche sono registrate in `bot_queries.log`
 - **Accesso concorrente**: Database in modalità WAL per letture simultanee GUI+bot
 
@@ -264,8 +264,7 @@ AbbonamentiScalea/
 
 ## 🔒 Sicurezza
 
-- **Crittografia AES-256-GCM** per dati sensibili
-- **Firma digitale RSA-2048** per autenticità
+- **Crittografia Fernet** per dati sensibili
 - **HMAC-SHA256** per verifica integrità
 - **Chiavi auto-generate** al primo avvio
 - **Audit trail** completo di ogni modifica
