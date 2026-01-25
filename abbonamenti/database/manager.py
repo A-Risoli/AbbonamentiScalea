@@ -30,6 +30,9 @@ class DatabaseManager:
     def _init_database(self):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
+        
+        # Enable WAL mode for concurrent read access (GUI + bot)
+        cursor.execute("PRAGMA journal_mode=WAL")
 
         for sql in Schema.get_create_tables_sql():
             cursor.execute(sql)

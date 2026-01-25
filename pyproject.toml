@@ -9,12 +9,14 @@ dependencies = [
     "matplotlib>=3.10.8",
     "openpyxl>=3.1.0",
     "pyinstaller>=6.18.0",
+    "python-telegram-bot[all]>=21.0",
     "pyqt6>=6.10.2",
     "reportlab>=4.0.0",
 ]
 
 [project.scripts]
 abbonamenti = "abbonamenti.main:main"
+abbonamenti-bot = "abbonamenti.bot.main:main"
 
 [build-system]
 requires = ["hatchling"]

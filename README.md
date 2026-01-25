@@ -8,6 +8,7 @@ Sistema sicuro e affidabile per la gestione degli abbonamenti parcheggio del Com
 
 - ✅ **Gestione completa abbonamenti** - Inserimento, modifica, eliminazione con validazione
 - 🔐 **Sicurezza enterprise** - Crittografia AES-256, firma digitale RSA, HMAC per integrità dati
+- 🤖 **Bot Telegram integrato** - Verifica validità targhe da remoto per agenti di polizia
 - 📊 **Statistiche avanzate** - Grafici interattivi per analisi incassi e pagamenti
 - 📝 **Audit trail completo** - Tracciamento di ogni operazione con timestamp e motivazione
 - 🎨 **Interfaccia moderna** - Design Windows 11-aware con supporto tema chiaro/scuro
@@ -38,8 +39,11 @@ uv sync
 ### Modalità Sviluppo
 
 ```bash
-# Avvia l'applicazione
+# Avvia l'applicazione desktop
 uv run abbonamenti
+
+# Avvia il bot Telegram standalone (opzionale)
+uv run abbonamenti-bot
 ```
 
 ### Primo Avvio
@@ -48,6 +52,66 @@ Al primo avvio, l'applicazione creerà automaticamente:
 - Database SQLite in `%APPDATA%\AbbonamentiScalea\database.db`
 - Chiavi di crittografia in `%APPDATA%\AbbonamentiScalea\keys\`
 - Cartella backup in `%APPDATA%\AbbonamentiScalea\backups\`
+
+## 🤖 Bot Telegram
+
+Il bot Telegram consente agli agenti di polizia di verificare la validità delle targhe direttamente da smartphone mentre sono in servizio.
+
+### Configurazione Bot
+
+1. **Crea un bot Telegram**:
+   - Apri Telegram e cerca [@BotFather](https://t.me/BotFather)
+   - Invia `/newbot` e segui le istruzioni
+   - Salva il **token** fornito (es: `123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`)
+
+2. **Ottieni gli User ID degli agenti autorizzati**:
+   - Ogni agente deve cercare [@userinfobot](https://t.me/userinfobot) su Telegram
+   - Il bot risponderà con l'User ID (es: `123456789`)
+   - In alternativa, usa il comando `/myid` del bot dopo la configurazione
+
+3. **Configura il bot nell'applicazione**:
+   - Apri l'applicazione desktop
+   - Menu: **Strumenti > 🤖 Impostazioni Bot**
+   - Abilita il bot e inserisci:
+     - **Token Bot**: Il token da @BotFather
+     - **Soglia scadenza**: Giorni prima della scadenza per l'avviso (default: 7)
+     - **User ID autorizzati**: Uno per riga (es: `123456789`)
+   - Clicca **Testa Connessione** per verificare
+   - Salva le impostazioni
+
+4. **Utilizzo del bot**:
+   - Cerca il tuo bot su Telegram (es: `@ScaleaParkingBot`)
+   - Comandi disponibili:
+     - `/myid` - Mostra il tuo User ID (tutti gli utenti)
+     - `/check AB123CD` - Verifica validità targa (solo utenti autorizzati)
+
+### Risposte del Bot
+
+- ✅ **VALIDO! Scade: 31/12/2026** - Abbonamento attivo
+- ⏰ **IN SCADENZA (entro 7 giorni)! Scade: 27/01/2026** - In scadenza
+- ❌ **NON VALIDO o SCADUTO** - Nessun abbonamento trovato o scaduto
+
+### Sicurezza Bot
+
+- **Whitelist utenti**: Solo gli User ID configurati possono usare il bot
+- **Rate limiting**: Massimo 20 richieste/minuto per utente
+- **Token crittografato**: Il token viene salvato crittografato (AES-256)
+- **Log delle query**: Tutte le ricerche sono registrate in `bot_queries.log`
+- **Accesso concorrente**: Database in modalità WAL per letture simultanee GUI+bot
+
+### Modalità Standalone
+
+Il bot può essere eseguito indipendentemente dalla GUI:
+
+```bash
+# Avvia solo il bot (senza GUI)
+uv run abbonamenti-bot
+```
+
+Utile per:
+- Esecuzione come servizio Windows/systemd
+- Deploy su server remoto
+- Debug e testing
 
 ### Popolamento Database (Opzionale)
 

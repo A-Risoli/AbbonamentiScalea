@@ -15,12 +15,15 @@ from PyQt6.QtWidgets import (
     QSplitter,
     QStatusBar,
     QStyle,
+    QSystemTrayIcon,
     QTableView,
     QToolBar,
     QVBoxLayout,
     QWidget,
 )
 
+from abbonamenti.bot.config import BotConfig
+from abbonamenti.bot.runner import BotThread
 from abbonamenti.database.manager import DatabaseManager
 from abbonamenti.gui.dialogs.add_edit_dialog import (
     AddEditSubscriptionDialog,
@@ -28,6 +31,7 @@ from abbonamenti.gui.dialogs.add_edit_dialog import (
 )
 from abbonamenti.gui.dialogs.audit_viewer import AuditLogViewer
 from abbonamenti.gui.dialogs.backup_dialog import BackupDialog
+from abbonamenti.gui.dialogs.bot_settings_dialog import BotSettingsDialog
 from abbonamenti.gui.dialogs.import_dialog import ImportDialog
 from abbonamenti.gui.dialogs.key_export_dialog import KeyExportDialog
 from abbonamenti.gui.dialogs.key_import_dialog import KeyImportDialog
@@ -45,8 +49,12 @@ class MainWindow(QMainWindow):
         self.edit_mode_enabled = False
         self.has_modifications = False  # Track if data was modified
         self.model = SubscriptionsTableModel(self.db_manager.get_all_subscriptions())
+        self.bot_thread = None
+        self.tray_icon = None
+        self.bot_status_label = None
         self.init_ui()
         self.check_data_integrity()
+        self.init_bot()
 
     def init_ui(self):
         self.setWindowTitle("AbbonaMunicipale - Sistema Abbonamenti Città di Scalea")
@@ -66,6 +74,7 @@ class MainWindow(QMainWindow):
         self.create_toolbar()
         self.create_central_widget()
         self.create_status_bar()
+        self.create_system_tray()
 
     def create_menubar(self):
         menubar = self.menuBar()
@@ -118,6 +127,15 @@ class MainWindow(QMainWindow):
             "Usa il file chiavi .enc/.zip per poter aprire i backup cifrati"
         )
         tools_menu.addAction(key_import_action)
+
+        tools_menu.addSeparator()
+
+        bot_settings_action = QAction("🤖 Impostazioni Bot", self)
+        bot_settings_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
+        )
+        bot_settings_action.triggered.connect(self.show_bot_settings)
+        tools_menu.addAction(bot_settings_action)
 
         tools_menu.addSeparator()
 
@@ -256,7 +274,123 @@ class MainWindow(QMainWindow):
     def create_status_bar(self):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
+        
+        # Add bot status label to status bar
+        self.bot_status_label = QLabel("Bot Telegram: Non configurato")
+        self.bot_status_label.setStyleSheet("margin-left: 20px; color: #666;")
+        self.status_bar.addPermanentWidget(self.bot_status_label)
+        
         self.update_status_bar()
+
+    def create_system_tray(self):
+        """Create system tray icon with context menu."""
+        # Get application icon
+        from pathlib import Path
+        icon_path = Path(__file__).parent.parent.parent / "assets" / "icon.ico"
+        
+        if icon_path.exists():
+            icon = QIcon(str(icon_path))
+        else:
+            icon = self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
+        
+        self.tray_icon = QSystemTrayIcon(icon, self)
+        
+        # Create tray menu
+        from PyQt6.QtWidgets import QMenu
+        tray_menu = QMenu()
+        
+        show_action = QAction("Mostra Finestra", self)
+        show_action.triggered.connect(self.show)
+        tray_menu.addAction(show_action)
+        
+        hide_action = QAction("Nascondi Finestra", self)
+        hide_action.triggered.connect(self.hide)
+        tray_menu.addAction(hide_action)
+        
+        tray_menu.addSeparator()
+        
+        # Bot status action (non-clickable, just info)
+        self.bot_tray_action = QAction("Bot: Non configurato", self)
+        self.bot_tray_action.setEnabled(False)
+        tray_menu.addAction(self.bot_tray_action)
+        
+        tray_menu.addSeparator()
+        
+        quit_action = QAction("Esci", self)
+        quit_action.triggered.connect(self.close)
+        tray_menu.addAction(quit_action)
+        
+        self.tray_icon.setContextMenu(tray_menu)
+        self.tray_icon.setToolTip("AbbonaMunicipale - Città di Scalea")
+        self.tray_icon.show()
+
+    def init_bot(self):
+        """Initialize and start bot thread if configured."""
+        try:
+            config = BotConfig.load_config()
+            
+            if not config.enabled or not config.get_decrypted_token():
+                self.update_bot_status("Non configurato")
+                return
+            
+            # Start bot thread
+            self.bot_thread = BotThread(config)
+            self.bot_thread.status_changed.connect(self.on_bot_status_changed)
+            self.bot_thread.error_occurred.connect(self.on_bot_error)
+            self.bot_thread.start()
+            
+        except Exception as e:
+            # Silent failure - GUI should continue to work
+            self.update_bot_status(f"Errore: {e!s}")
+
+    def show_bot_settings(self):
+        """Show bot settings dialog."""
+        dialog = BotSettingsDialog(self)
+        dialog.settings_changed.connect(self.restart_bot)
+        dialog.exec()
+
+    def restart_bot(self):
+        """Restart bot thread with new configuration."""
+        # Stop existing bot
+        if self.bot_thread and self.bot_thread.isRunning():
+            self.bot_thread.stop()
+            self.bot_thread.wait(5000)  # Wait up to 5 seconds
+            self.bot_thread = None
+        
+        # Start bot with new config
+        self.init_bot()
+
+    def on_bot_status_changed(self, status: str):
+        """Handle bot status changes."""
+        status_map = {
+            "running": ("🟢 Attivo", "Bot: Attivo"),
+            "stopped": ("🔴 Inattivo", "Bot: Inattivo"),
+            "error": ("⚠️ Errore", "Bot: Errore"),
+        }
+        
+        label_text, tray_text = status_map.get(status, ("❓ Sconosciuto", "Bot: Sconosciuto"))
+        self.update_bot_status(label_text)
+        
+        if self.bot_tray_action:
+            self.bot_tray_action.setText(tray_text)
+
+    def on_bot_error(self, error_message: str):
+        """Handle bot errors."""
+        self.update_bot_status(f"⚠️ Errore: {error_message}")
+        
+        # Show notification via system tray
+        if self.tray_icon:
+            self.tray_icon.showMessage(
+                "Errore Bot Telegram",
+                error_message,
+                QSystemTrayIcon.MessageIcon.Warning,
+                3000,
+            )
+
+    def update_bot_status(self, status: str):
+        """Update bot status in status bar."""
+        if self.bot_status_label:
+            self.bot_status_label.setText(f"Bot Telegram: {status}")
 
     def toggle_edit_mode(self, checked: bool):
         self.edit_mode_enabled = checked
@@ -714,6 +848,11 @@ class MainWindow(QMainWindow):
             except Exception:
                 # Silently fail - don't block app close
                 pass
+        
+        # Stop bot thread if running
+        if self.bot_thread and self.bot_thread.isRunning():
+            self.bot_thread.stop()
+            self.bot_thread.wait(5000)  # Wait up to 5 seconds for graceful shutdown
         
         event.accept()
 
