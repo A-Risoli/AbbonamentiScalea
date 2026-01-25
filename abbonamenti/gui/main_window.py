@@ -43,6 +43,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.db_manager = DatabaseManager(get_database_path(), get_keys_dir())
         self.edit_mode_enabled = False
+        self.has_modifications = False  # Track if data was modified
         self.model = SubscriptionsTableModel(self.db_manager.get_all_subscriptions())
         self.init_ui()
         self.check_data_integrity()
@@ -362,6 +363,7 @@ class MainWindow(QMainWindow):
                 )
                 self.model.update_data(self.db_manager.get_all_subscriptions())
                 self.update_status_bar()
+                self.has_modifications = True
             except Exception as e:
                 QMessageBox.critical(
                     self, "Errore", f"Errore durante l'aggiunta: {str(e)}"
@@ -417,6 +419,7 @@ class MainWindow(QMainWindow):
                     )
                     self.model.update_data(self.db_manager.get_all_subscriptions())
                     self.update_status_bar()
+                    self.has_modifications = True
                 else:
                     QMessageBox.warning(
                         self, "Errore", "Impossibile modificare l'abbonamento."
@@ -466,6 +469,7 @@ class MainWindow(QMainWindow):
                     )
                     self.model.update_data(self.db_manager.get_all_subscriptions())
                     self.update_status_bar()
+                    self.has_modifications = True
                 else:
                     QMessageBox.warning(
                         self, "Errore", "Impossibile eliminare l'abbonamento."
@@ -576,6 +580,9 @@ class MainWindow(QMainWindow):
         
         # Re-check integrity
         self.check_data_integrity()
+        
+        # Mark modifications
+        self.has_modifications = True
 
     @pyqtSlot()
     def backup_database(self):
@@ -676,8 +683,39 @@ class MainWindow(QMainWindow):
             "\n\nRisoli Antonio\n\n"
             "Sistema Abbonamenti Città di Scalea\n\n"
             "Sicuro, affidabile, facile da usare.\n\n"
-            "Versione 0.1.1",
+            "Versione 0.1.2",
         )
+
+    def closeEvent(self, event):
+        """Handle application close - perform silent backup if modifications exist."""
+        if self.has_modifications:
+            try:
+                # Silent backup with auto-generated passphrase from HMAC key
+                from datetime import datetime
+                from abbonamenti.utils.paths import get_backups_dir
+                import hashlib
+                
+                # Derive passphrase from HMAC key (always available)
+                hmac_key_path = get_keys_dir() / "hmac_key.bin"
+                with open(hmac_key_path, "rb") as f:
+                    hmac_key = f.read()
+                # Create a deterministic 32-char passphrase from HMAC key
+                passphrase = hashlib.sha256(hmac_key + b"auto_backup_salt").hexdigest()[:32]
+                
+                backup_filename = f"auto_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.enc"
+                backup_path = get_backups_dir() / backup_filename
+                
+                # Perform silent backup
+                self.db_manager.perform_secure_backup(
+                    str(backup_path),
+                    passphrase,
+                    progress_callback=None  # Silent mode
+                )
+            except Exception:
+                # Silently fail - don't block app close
+                pass
+        
+        event.accept()
 
 
 def main():

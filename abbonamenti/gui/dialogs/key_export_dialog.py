@@ -34,8 +34,8 @@ class KeyExportDialog(QDialog):
     
     def init_ui(self):
         self.setWindowTitle("Esporta Chiave di Recupero")
-        self.setMinimumWidth(600)
-        self.setMinimumHeight(400)
+        self.setMinimumWidth(520)
+        self.setMinimumHeight(450)
         self.setStyleSheet(get_stylesheet())
         
         layout = QVBoxLayout(self)
@@ -61,37 +61,45 @@ class KeyExportDialog(QDialog):
         )
         layout.addWidget(warning_label)
         
-        # Protection options
-        protection_group = QGroupBox("Protezione Chiavi")
-        protection_layout = QVBoxLayout(protection_group)
+        # Protection password (MANDATORY)
+        protection_group = QGroupBox("Protezione Chiavi (Obbligatoria)")
+        protection_layout = QFormLayout(protection_group)
+        protection_layout.setSpacing(12)
         
         info_label = QLabel(
-            "Le chiavi verranno esportate in un archivio ZIP.\n"
-            "Puoi proteggerlo con una password aggiuntiva (consigliato)."
+            "Le chiavi verranno esportate in un archivio ZIP cifrato.\n"
+            "Proteggi con una password sicura (minimo 16 caratteri)."
         )
         info_label.setWordWrap(True)
         info_label.setStyleSheet("color: #666; padding: 8px;")
-        protection_layout.addWidget(info_label)
-        
-        self.password_check = QCheckBox("Proteggi con password (consigliato)")
-        self.password_check.setChecked(True)
-        self.password_check.toggled.connect(self.toggle_password)
-        protection_layout.addWidget(self.password_check)
-        
-        pass_form = QFormLayout()
-        pass_form.setSpacing(12)
+        protection_layout.addRow(info_label)
         
         self.password_input = QLineEdit()
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.password_input.setPlaceholderText("Minimo 16 caratteri")
-        pass_form.addRow("Password *:", self.password_input)
+        self.password_input.textChanged.connect(self.validate_passphrase)
+        protection_layout.addRow("Password *:", self.password_input)
         
         self.confirm_input = QLineEdit()
         self.confirm_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.confirm_input.setPlaceholderText("Conferma password")
-        pass_form.addRow("Conferma *:", self.confirm_input)
+        self.confirm_input.textChanged.connect(self.validate_passphrase)
+        protection_layout.addRow("Conferma *:", self.confirm_input)
         
-        protection_layout.addLayout(pass_form)
+        self.strength_label = QLabel("")
+        self.strength_label.setStyleSheet("color: #999; font-size: 11px;")
+        protection_layout.addRow("", self.strength_label)
+        
+        warning_label2 = QLabel(
+            "⚠️ IMPORTANTE: Salva questa password in un luogo sicuro!\n"
+            "Senza la password non potrai recuperare queste chiavi."
+        )
+        warning_label2.setWordWrap(True)
+        warning_label2.setStyleSheet(
+            "color: #ff6b00; background: #fff3e0; padding: 8px; "
+            "border-radius: 4px; font-size: 11px;"
+        )
+        protection_layout.addRow("", warning_label2)
         
         layout.addWidget(protection_group)
         
@@ -120,54 +128,88 @@ class KeyExportDialog(QDialog):
         button_layout.addWidget(cancel_btn)
         
         self.export_btn = QPushButton("🔑 Esporta Chiavi")
+        self.export_btn.setEnabled(False)
         self.export_btn.clicked.connect(self.export_keys)
         self.export_btn.setStyleSheet(
             "QPushButton { background: #c62828; color: white; font-weight: bold; "
             "padding: 10px 24px; font-size: 13px; } "
             "QPushButton:hover { background: #b71c1c; }"
+            "QPushButton:disabled { background: #999; }"
         )
         button_layout.addWidget(self.export_btn)
         
         layout.addLayout(button_layout)
     
-    def toggle_password(self, checked: bool):
-        """Toggle password fields"""
-        self.password_input.setEnabled(checked)
-        self.confirm_input.setEnabled(checked)
+    def validate_passphrase(self):
+        """Validate passphrase and enable export button"""
+        password = self.password_input.text()
+        confirm = self.confirm_input.text()
+        
+        if not password or not confirm:
+            self.strength_label.setText("")
+            self.export_btn.setEnabled(False)
+            return
+        
+        if len(password) < 16:
+            self.strength_label.setText("✗ Troppo corta (minimo 16 caratteri)")
+            self.strength_label.setStyleSheet("color: #d32f2f; font-size: 11px;")
+            self.export_btn.setEnabled(False)
+            return
+        
+        if password != confirm:
+            self.strength_label.setText("✗ Le password non coincidono")
+            self.strength_label.setStyleSheet("color: #d32f2f; font-size: 11px;")
+            self.export_btn.setEnabled(False)
+            return
+        
+        # Calculate strength
+        has_lower = any(c.islower() for c in password)
+        has_upper = any(c.isupper() for c in password)
+        has_digit = any(c.isdigit() for c in password)
+        has_symbol = any(c in "!@#$%^&*()-_=+[]{}|;:,.<>?" for c in password)
+        
+        strength = sum([has_lower, has_upper, has_digit, has_symbol])
+        
+        if strength <= 1:
+            self.strength_label.setText("✓ Valida (Debole - aggiungi numeri/simboli)")
+            self.strength_label.setStyleSheet("color: #ff9800; font-size: 11px;")
+        elif strength <= 2:
+            self.strength_label.setText("✓ Valida (Media)")
+            self.strength_label.setStyleSheet("color: #2196F3; font-size: 11px;")
+        else:
+            self.strength_label.setText("✓ Valida (Forte)")
+            self.strength_label.setStyleSheet("color: #4CAF50; font-size: 11px;")
+        
+        self.export_btn.setEnabled(True)
     
     def export_keys(self):
         """Export master keys to encrypted archive"""
-        # Validate password if enabled
-        if self.password_check.isChecked():
-            password = self.password_input.text()
-            confirm = self.confirm_input.text()
-            
-            if len(password) < 16:
-                QMessageBox.warning(
-                    self,
-                    "Password Troppo Corta",
-                    "La password deve essere di almeno 16 caratteri."
-                )
-                return
-            
-            if password != confirm:
-                QMessageBox.warning(
-                    self,
-                    "Password Non Coincidono",
-                    "Le due password non coincidono."
-                )
-                return
+        password = self.password_input.text()
+        confirm = self.confirm_input.text()
+        
+        # Validate password (should already be done by validate_passphrase but double-check)
+        if len(password) < 16:
+            QMessageBox.warning(
+                self,
+                "Password Troppo Corta",
+                "La password deve essere di almeno 16 caratteri."
+            )
+            return
+        
+        if password != confirm:
+            QMessageBox.warning(
+                self,
+                "Password Non Coincidono",
+                "Le due password non coincidono."
+            )
+            return
         
         # Select destination
-        suggested_name = f"chiavi_recupero_abbonamenti.zip"
-        if self.password_check.isChecked():
-            suggested_name = f"chiavi_recupero_abbonamenti_protette.enc"
-        
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "Salva Chiavi di Recupero",
-            suggested_name,
-            "Archive Files (*.zip *.enc);;All Files (*)"
+            "chiavi_recupero_abbonamenti_protette.enc",
+            "Encrypted Archive (*.enc);;All Files (*)"
         )
         
         if not file_path:
@@ -184,56 +226,100 @@ class KeyExportDialog(QDialog):
                     if key_file.is_file() and key_file.suffix in ['.bin', '.pem']:
                         zipf.write(key_file, f"keys/{key_file.name}")
             
-            # If password protection enabled, encrypt the zip
-            if self.password_check.isChecked():
-                with open(temp_zip, 'rb') as f:
-                    zip_data = f.read()
-                
-                # Derive key and encrypt
-                key, salt = derive_key_from_passphrase(password)
-                encrypted_data = encrypt_with_key(zip_data, key)
-                
-                # Write encrypted file with metadata
-                with open(file_path, 'wb') as f:
-                    f.write(b'\x02')  # Version 2 (key export)
-                    f.write(salt)
-                    f.write(encrypted_data)
-            else:
-                # Just copy the zip
-                import shutil
-                shutil.copy2(temp_zip, file_path)
+            # Encrypt the zip (always encrypted now)
+            with open(temp_zip, 'rb') as f:
+                zip_data = f.read()
+            
+            # Derive key and encrypt
+            key, salt = derive_key_from_passphrase(password)
+            encrypted_data = encrypt_with_key(zip_data, key)
+            
+            # Write encrypted file with metadata
+            with open(file_path, 'wb') as f:
+                f.write(b'87029')  # Magic header
+                f.write(b'\x02')  # Version 2 (key export)
+                f.write(salt)
+                f.write(encrypted_data)
             
             # Cleanup
             temp_zip.unlink()
             
-            # Success message
+            # Store for recovery sheet
+            self.last_export_path = file_path
+            self.last_password = password
+            
+            # Show success message
             QMessageBox.information(
                 self,
                 "Esportazione Completata",
-                f"✅ Chiavi esportate con successo!\n\n"
-                f"File: {file_path}\n\n"
-                f"⚠️ RICORDA:\n"
-                f"• Copia questo file su almeno 2 chiavette USB\n"
-                f"• Conservale in luoghi sicuri e separati\n"
-                f"• Senza queste chiavi, i backup sono inutili!"
+                f"Chiavi esportate con successo:\n\n{file_path}"
             )
             
-            # Ask if user wants to open folder
-            reply = QMessageBox.question(
-                self,
-                "Aprire Cartella?",
-                "Vuoi aprire la cartella dove sono state salvate le chiavi?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )
-            
-            if reply == QMessageBox.StandardButton.Yes:
-                os.startfile(str(Path(file_path).parent))
-            
-            self.accept()
+            # Generate recovery sheet automatically
+            self.generate_recovery_sheet()
             
         except Exception as e:
             QMessageBox.critical(
                 self,
                 "Errore Esportazione",
                 f"Impossibile esportare le chiavi:\n\n{str(e)}"
+            )
+    
+    def generate_recovery_sheet(self):
+        """Generate and automatically open emergency recovery sheet PDF"""
+        from abbonamenti.utils.recovery_sheet import generate_recovery_sheet_pdf
+        from abbonamenti.utils.paths import get_backups_dir
+        from datetime import datetime
+        import os
+        
+        try:
+            # Prepare recovery sheet path
+            recovery_dir = get_backups_dir().parent / "recovery_sheets"
+            recovery_dir.mkdir(parents=True, exist_ok=True)
+            
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            recovery_path = recovery_dir / f"recovery_sheet_keys_{timestamp}.pdf"
+            
+            # Generate PDF
+            backup_location = (
+                f"File chiavi: {self.last_export_path}\n\n"
+                "Conservare su almeno 2 chiavette USB in cassaforte."
+            )
+            
+            success = generate_recovery_sheet_pdf(
+                password=self.last_password,
+                backup_location=backup_location,
+                output_path=recovery_path,
+                sheet_type="keys"
+            )
+            
+            if success:
+                # Open PDF in default viewer automatically
+                os.startfile(str(recovery_path))
+                
+                # Ask if user wants to open keys folder
+                reply = QMessageBox.question(
+                    self,
+                    "Scheda Generata",
+                    "La scheda di recupero è stata generata e aperta.\n\n"
+                    "Vuoi aprire la cartella dove sono state salvate le chiavi?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No
+                )
+                
+                if reply == QMessageBox.StandardButton.Yes:
+                    os.startfile(str(Path(self.last_export_path).parent))
+                
+                self.accept()
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Errore",
+                    "Impossibile generare la scheda di recupero."
+                )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore generazione scheda:\n\n{str(e)}"
             )

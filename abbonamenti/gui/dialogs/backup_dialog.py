@@ -237,16 +237,20 @@ class BackupDialog(QDialog):
         self.progress_label.setText(message)
     
     def on_finished(self, success: bool, result: str):
-        """Handle backup completion"""
+        """Handle backup completion - generate and show recovery sheet"""
         if success:
+            # Store for recovery sheet generation
+            self.last_backup_path = result
+            self.last_passphrase = self.passphrase_input.text()
+            
             QMessageBox.information(
                 self,
                 "Backup Completato",
-                f"Backup creato con successo:\n\n{result}\n\n"
-                "Ricorda di salvare la passphrase in un luogo sicuro!"
+                f"Backup creato con successo:\n\n{result}"
             )
-            self.backup_completed.emit(result)
-            self.accept()
+            
+            # Generate recovery sheet automatically
+            self.generate_recovery_sheet()
         else:
             QMessageBox.critical(
                 self,
@@ -260,3 +264,63 @@ class BackupDialog(QDialog):
             self.backup_btn.setEnabled(True)
             self.progress_bar.setVisible(False)
             self.progress_label.setVisible(False)
+    
+    def generate_recovery_sheet(self):
+        """Generate and automatically open emergency recovery sheet PDF"""
+        from abbonamenti.utils.recovery_sheet import generate_recovery_sheet_pdf
+        from abbonamenti.utils.paths import get_backups_dir
+        from datetime import datetime
+        import os
+        
+        try:
+            # Prepare recovery sheet path
+            recovery_dir = get_backups_dir().parent / "recovery_sheets"
+            recovery_dir.mkdir(parents=True, exist_ok=True)
+            
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            recovery_path = recovery_dir / f"recovery_sheet_{timestamp}.pdf"
+            
+            # Generate PDF
+            backup_location = (
+                f"Backup: {self.last_backup_path}\n\n"
+                "Conservare su chiavetta USB in cassaforte."
+            )
+            
+            success = generate_recovery_sheet_pdf(
+                password=self.last_passphrase,
+                backup_location=backup_location,
+                output_path=recovery_path,
+                sheet_type="backup"
+            )
+            
+            if success:
+                # Open PDF in default viewer automatically
+                os.startfile(str(recovery_path))
+                
+                # Ask if user wants to open backup folder
+                reply = QMessageBox.question(
+                    self,
+                    "Scheda Generata",
+                    "La scheda di recupero è stata generata e aperta.\n\n"
+                    "Vuoi aprire la cartella dei backup?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No
+                )
+                
+                if reply == QMessageBox.StandardButton.Yes:
+                    os.startfile(str(Path(self.last_backup_path).parent))
+                
+                self.backup_completed.emit(self.last_backup_path)
+                self.accept()
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Errore",
+                    "Impossibile generare la scheda di recupero."
+                )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore generazione scheda:\n\n{str(e)}"
+            )

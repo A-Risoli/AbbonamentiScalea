@@ -147,12 +147,20 @@ class KeyImportDialog(QDialog):
                 if not data:
                     raise ValueError("File vuoto")
 
-                # Detect format
-                header = data[0]
+                # Check magic header
+                if len(data) < 5:
+                    raise ValueError("File non valido (troppo corto)")
+                
+                magic = data[0:5]
+                if magic != b"87029":
+                    raise ValueError("File non valido: non è un backup di AbbonaMunicipale")
+                
+                # Detect format after magic header
+                header = data[5]
                 if header == 0x02:
-                    # Key export (encrypted)
-                    salt = data[1:33]
-                    payload = data[33:]
+                    # Key export (encrypted, version 2)
+                    salt = data[6:38]
+                    payload = data[38:]
 
                     password = self.pass_input.text()
                     if len(password) < 16:
@@ -160,10 +168,8 @@ class KeyImportDialog(QDialog):
 
                     key, _ = derive_key_from_passphrase(password, salt)
                     zip_bytes = decrypt_with_key(payload, key)
-                elif header == 0x50 and data[1:2] == b"K":
-                    # Looks like a raw ZIP with .enc estensione
-                    zip_bytes = data
                 elif header == 0x01:
+                    # Database backup (version 1) - cannot import as keys
                     raise ValueError(
                         "Hai selezionato un backup del database (.enc v1).\n"
                         "Per ripristinare il database usa 'Ripristina Backup'.\n"
@@ -171,7 +177,7 @@ class KeyImportDialog(QDialog):
                     )
                 else:
                     raise ValueError(
-                        "Formato chiavi non valido (atteso file export chiavi .enc/.zip)."
+                        f"Formato backup non riconosciuto (versione {header})."
                     )
             else:
                 zip_bytes = source.read_bytes()

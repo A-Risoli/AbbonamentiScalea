@@ -15,6 +15,9 @@ from abbonamenti.database.schema import AuditLogEntry, Schema, Subscription
 from abbonamenti.security.crypto import CryptoManager, derive_key_from_passphrase, encrypt_with_key, decrypt_with_key
 from abbonamenti.security.hmac import HMACManager
 
+# Magic header to identify valid backup files
+_BACKUP_MAGIC_HEADER = b"87029"
+
 
 class DatabaseManager:
     def __init__(self, db_path: Path, keys_dir: Path):
@@ -1058,7 +1061,8 @@ class DatabaseManager:
             
             # Write metadata header + encrypted data
             with open(backup_path, 'wb') as f:
-                # Header: version(1) + salt(32) + encrypted_data
+                # Header: magic(5) + version(1) + salt(32) + encrypted_data
+                f.write(_BACKUP_MAGIC_HEADER)
                 f.write(b'\x01')  # Version 1
                 f.write(salt)
                 f.write(encrypted_data)
@@ -1128,6 +1132,11 @@ class DatabaseManager:
                 progress_callback(1, 5, "Lettura backup cifrato...")
             
             with open(backup_path, 'rb') as f:
+                # Read and validate magic header
+                magic = f.read(5)
+                if magic != _BACKUP_MAGIC_HEADER:
+                    return False, "File non valido: non è un backup di AbbonaMunicipale"
+                
                 version = f.read(1)
                 if version != b'\x01':
                     return False, "Versione backup non supportata"

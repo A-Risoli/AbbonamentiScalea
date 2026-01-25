@@ -2,6 +2,7 @@
 Restore dialog for restoring encrypted database backups
 """
 from pathlib import Path
+import hashlib
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -21,6 +22,7 @@ from PyQt6.QtWidgets import (
 from abbonamenti.database.manager import DatabaseManager
 from abbonamenti.gui.styles import get_stylesheet
 from abbonamenti.utils.paths import get_backups_dir
+from abbonamenti.utils.paths import get_keys_dir
 
 
 class RestoreThread(QThread):
@@ -86,6 +88,7 @@ class RestoreDialog(QDialog):
         self.file_input = QLineEdit()
         self.file_input.setPlaceholderText("Seleziona file .enc da ripristinare")
         self.file_input.setReadOnly(True)
+        self.file_input.textChanged.connect(self.on_file_changed)
         file_layout.addWidget(self.file_input)
         
         browse_btn = QPushButton("Sfoglia...")
@@ -109,6 +112,12 @@ class RestoreDialog(QDialog):
         self.passphrase_input.setPlaceholderText("Inserisci passphrase")
         self.passphrase_input.textChanged.connect(self.validate_inputs)
         pass_layout.addRow("Passphrase *:", self.passphrase_input)
+
+        self.auto_backup_label = QLabel()
+        self.auto_backup_label.setWordWrap(True)
+        self.auto_backup_label.setStyleSheet("color: #4caf50; font-weight: bold;")
+        self.auto_backup_label.setVisible(False)
+        pass_layout.addRow("", self.auto_backup_label)
         
         layout.addWidget(pass_group)
         
@@ -153,12 +162,24 @@ class RestoreDialog(QDialog):
         )
         if file_path:
             self.file_input.setText(file_path)
+            self.check_auto_backup(file_path)
             self.validate_inputs()
+
+    def on_file_changed(self, text: str):
+        """React to manual edits or programmatic changes of the file path."""
+        if text:
+            self.check_auto_backup(text)
+        else:
+            # Reset state when cleared
+            self.auto_backup_label.setVisible(False)
+            self.passphrase_input.setEnabled(True)
+        self.validate_inputs()
     
     def validate_inputs(self):
         """Validate file and passphrase"""
         has_file = bool(self.file_input.text())
-        has_passphrase = bool(self.passphrase_input.text())
+        is_auto_backup = self.auto_backup_label.isVisible()
+        has_passphrase = bool(self.passphrase_input.text()) or is_auto_backup
         
         self.restore_btn.setEnabled(has_file and has_passphrase)
     
@@ -179,7 +200,15 @@ class RestoreDialog(QDialog):
             return
         
         backup_path = Path(self.file_input.text())
-        passphrase = self.passphrase_input.text()
+        try:
+            passphrase = self._get_restore_passphrase(backup_path)
+        except FileNotFoundError as exc:
+            QMessageBox.critical(
+                self,
+                "Chiave HMAC mancante",
+                f"Impossibile derivare la password per i backup automatici:\n{exc}"
+            )
+            return
         
         # Disable inputs
         self.passphrase_input.setEnabled(False)
@@ -226,3 +255,47 @@ class RestoreDialog(QDialog):
             self.restore_btn.setEnabled(True)
             self.progress_bar.setVisible(False)
             self.progress_label.setVisible(False)
+
+    def check_auto_backup(self, file_path: str):
+        """Check if file is an auto-backup and derive password automatically"""
+        is_auto_backup = self._is_auto_backup(Path(file_path))
+        
+        if is_auto_backup:
+            self.auto_backup_label.setText(
+                "✓ Backup automatico rilevato - Password derivata automaticamente dalla HMAC key"
+            )
+            self.auto_backup_label.setVisible(True)
+            self.passphrase_input.setEnabled(False)
+            self.passphrase_input.clear()
+        else:
+            self.auto_backup_label.setVisible(False)
+            self.passphrase_input.setEnabled(True)
+
+    def _get_restore_passphrase(self, backup_path: Path) -> str:
+        """Get passphrase for restore, deriving from HMAC key if auto-backup"""
+        if self._is_auto_backup(backup_path):
+            # Derive password from HMAC key for auto-backups
+            hmac_key_path = get_keys_dir() / "hmac_key.bin"
+            if not hmac_key_path.exists():
+                raise FileNotFoundError(str(hmac_key_path))
+            with open(hmac_key_path, "rb") as f:
+                hmac_key = f.read()
+            return hashlib.sha256(hmac_key + b"auto_backup_salt").hexdigest()[:32]
+        
+        # Return user-entered passphrase for manual backups
+        return self.passphrase_input.text()
+
+    def _is_auto_backup(self, path: Path) -> bool:
+        """Return True if the selected .enc file is an auto-backup.
+
+        Recognizes either a file named "auto_backup_*.enc" or a file contained in a
+        folder named "auto_backup_*" (common layout: auto_backup_xxx/scalea_backup_xxx.enc).
+        """
+        if path.suffix != ".enc":
+            return False
+
+        if path.name.startswith("auto_backup_"):
+            return True
+
+        parent = path.parent
+        return parent.name.startswith("auto_backup_")

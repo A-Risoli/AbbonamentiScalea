@@ -40,7 +40,7 @@ if %ERRORLEVEL% EQU 0 (
     echo SUCCESS! Installer created!
     echo ============================================
     echo.
-    echo Output: installer_output\AbbonamentiScalea-Setup-0.1.1.exe
+    echo Output: installer_output\AbbonamentiScalea-Setup-0.1.2.exe
     echo.
     echo You can now distribute this single installer file.
     echo.

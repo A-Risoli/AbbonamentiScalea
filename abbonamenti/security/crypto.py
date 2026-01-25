@@ -1,5 +1,6 @@
 import json
 import os
+import base64
 from pathlib import Path
 
 from cryptography.fernet import Fernet
@@ -92,7 +93,7 @@ def derive_key_from_passphrase(passphrase: str, salt: bytes | None = None) -> tu
         algorithm=hashes.SHA256(),
         length=32,
         salt=salt,
-        iterations=10,
+        iterations=1000000,
     )
     
     key = kdf.derive(passphrase.encode('utf-8'))
@@ -101,9 +102,6 @@ def derive_key_from_passphrase(passphrase: str, salt: bytes | None = None) -> tu
 
 def encrypt_with_key(data: bytes, key: bytes) -> bytes:
     """Encrypt data with a derived key using Fernet."""
-    fernet = Fernet(Fernet.generate_key())  # Use key directly
-    # Convert 32-byte key to Fernet-compatible format
-    import base64
     fernet_key = base64.urlsafe_b64encode(key)
     fernet = Fernet(fernet_key)
     return fernet.encrypt(data)
@@ -111,7 +109,6 @@ def encrypt_with_key(data: bytes, key: bytes) -> bytes:
 
 def decrypt_with_key(encrypted_data: bytes, key: bytes) -> bytes:
     """Decrypt data with a derived key using Fernet."""
-    import base64
     fernet_key = base64.urlsafe_b64encode(key)
     fernet = Fernet(fernet_key)
     return fernet.decrypt(encrypted_data)

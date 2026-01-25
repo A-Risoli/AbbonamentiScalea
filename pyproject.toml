@@ -1,6 +1,6 @@
 [project]
 name = "abbonamenti"
-version = "0.1.1"
+version = "0.1.2"
 description = "Secure subscription archiving system for municipal police office"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -10,6 +10,7 @@ dependencies = [
     "openpyxl>=3.1.0",
     "pyinstaller>=6.18.0",
     "pyqt6>=6.10.2",
+    "reportlab>=4.0.0",
 ]
 
 [project.scripts]
