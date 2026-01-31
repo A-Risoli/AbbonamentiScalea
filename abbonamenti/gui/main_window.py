@@ -22,6 +22,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from cryptography.fernet import InvalidToken
 
 from abbonamenti.bot.config import BotConfig
 from abbonamenti.bot.runner import BotThread
@@ -50,13 +51,41 @@ class MainWindow(QMainWindow):
         self.db_manager = DatabaseManager(get_database_path(), get_keys_dir())
         self.edit_mode_enabled = False
         self.has_modifications = False  # Track if data was modified
-        self.model = SubscriptionsTableModel(self.db_manager.get_all_subscriptions())
+        subscriptions = self._load_subscriptions_with_recovery()
+        self.model = SubscriptionsTableModel(subscriptions)
         self.bot_thread = None
         self.tray_icon = None
         self.bot_status_label = None
         self.init_ui()
         self.check_data_integrity()
         self.init_bot()
+
+    def _load_subscriptions_with_recovery(self):
+        try:
+            return self.db_manager.get_all_subscriptions()
+        except InvalidToken:
+            message = (
+                "Le chiavi di cifratura non corrispondono ai dati nel database.\n\n"
+                "Per continuare, ripristina le chiavi originali (Strumenti → "
+                "Ripristina Chiavi di Recupero) oppure usa il backup completo "
+                "del database." 
+            )
+            reply = QMessageBox.critical(
+                self,
+                "Chiavi non valide",
+                message,
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.StandardButton.Yes,
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                dialog = KeyImportDialog(get_keys_dir(), self)
+                if dialog.exec_() == QDialog.Accepted:
+                    self.db_manager = DatabaseManager(
+                        get_database_path(), get_keys_dir()
+                    )
+                    return self.db_manager.get_all_subscriptions()
+
+            return []
 
     def init_ui(self):
         self.setWindowTitle("AbbonaMunicipale - Sistema Abbonamenti Città di Scalea")
