@@ -362,19 +362,40 @@ class DatabaseManager:
             updated_at=datetime.fromisoformat(row["updated_at"]),
         )
 
-    def _get_subscriptions_for_stats(self) -> list[dict]:
+    def _get_subscriptions_for_stats(
+        self, date_from: datetime | None = None, date_to: datetime | None = None
+    ) -> list[dict]:
         """
         Lightweight query for statistics - only decrypts payment_details.
         Returns dict with minimal fields needed for analytics.
+        Optionally filters by subscription_start date range.
         """
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute(
-            """SELECT protocol_id, subscription_start, subscription_end,
-                      payment_details_encrypted, payment_method
-               FROM subscriptions ORDER BY protocol_id"""
-        )
+        
+        # Build query with optional date filtering on subscription_start
+        query = """SELECT protocol_id, subscription_start, subscription_end,
+                      payment_details_encrypted, payment_method, created_at
+               FROM subscriptions"""
+        params = []
+        
+        if date_from or date_to:
+            where_clauses = []
+            if date_from:
+                where_clauses.append("subscription_start >= ?")
+                params.append(date_from.isoformat())
+            if date_to:
+                where_clauses.append("subscription_start <= ?")
+                params.append(date_to.isoformat())
+            query += " WHERE " + " AND ".join(where_clauses)
+        
+        query += " ORDER BY protocol_id"
+        
+        print(f"DEBUG _get_subscriptions_for_stats query: {query}")
+        print(f"DEBUG _get_subscriptions_for_stats params: {params}")
+        
+        cursor.execute(query, params)
         rows = cursor.fetchall()
         conn.close()
 
@@ -625,19 +646,26 @@ class DatabaseManager:
         return len(issues) == 0, issues
 
     def get_payment_statistics(
-        self, year: int | None = None, month: int | None = None
+        self,
+        year: int | None = None,
+        month: int | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
     ) -> dict:
-        """Get payment statistics for a given year and/or month"""
+        """Get payment statistics for a given year and/or month, or date range"""
         # Use lightweight query for performance
-        subs = self._get_subscriptions_for_stats()
+        subs = self._get_subscriptions_for_stats(date_from, date_to)
         
-        # Filter by year and month
+        # Filter by year and month only if date_from/date_to not specified
+        # (to avoid double filtering with inconsistent criteria)
         filtered_subs = []
         for sub in subs:
-            if year and sub["subscription_start"].year != year:
-                continue
-            if month and sub["subscription_start"].month != month:
-                continue
+            # If using date range filter, skip year/month filter
+            if date_from is None and date_to is None:
+                if year and sub["subscription_start"].year != year:
+                    continue
+                if month and sub["subscription_start"].month != month:
+                    continue
             filtered_subs.append(sub)
 
         # Calculate statistics

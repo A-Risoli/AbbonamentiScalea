@@ -35,6 +35,7 @@ from abbonamenti.gui.dialogs.bot_settings_dialog import BotSettingsDialog
 from abbonamenti.gui.dialogs.import_dialog import ImportDialog
 from abbonamenti.gui.dialogs.key_export_dialog import KeyExportDialog
 from abbonamenti.gui.dialogs.key_import_dialog import KeyImportDialog
+from abbonamenti.gui.dialogs.payment_report_dialog import PaymentReportDialog
 from abbonamenti.gui.dialogs.restore_dialog import RestoreDialog
 from abbonamenti.gui.dialogs.statistics_viewer import StatisticsViewer
 from abbonamenti.gui.models import SubscriptionsTableModel
@@ -226,6 +227,17 @@ class MainWindow(QMainWindow):
         stats_btn.setToolTip("Visualizza statistiche pagamenti")
         stats_btn.clicked.connect(self.show_statistics)
         toolbar.addWidget(stats_btn)
+
+        # PDF Report button
+        pdf_report_btn = QPushButton("📄 Report PDF")
+        pdf_report_btn.setMinimumHeight(38)
+        pdf_report_btn.setMinimumWidth(140)
+        pdf_report_btn.setStyleSheet("font-weight: bold; font-size: 13px;")
+        pdf_report_btn.setToolTip(
+            "Genera report PDF dei pagamenti per giorno/settimana/mese/anno"
+        )
+        pdf_report_btn.clicked.connect(self.generate_pdf_report)
+        toolbar.addWidget(pdf_report_btn)
 
     def create_central_widget(self):
         central_widget = QWidget()
@@ -642,6 +654,63 @@ class MainWindow(QMainWindow):
         """Show payment statistics dialog"""
         viewer = StatisticsViewer(self.db_manager, self)
         viewer.exec()
+
+    @pyqtSlot()
+    def generate_pdf_report(self):
+        """Generate PDF payment report"""
+        import os
+        from abbonamenti.utils.payment_report import generate_payment_report_pdf
+
+        try:
+            # Show dialog to configure report
+            dialog = PaymentReportDialog(self.db_manager, self)
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                # Get report data from dialog
+                file_path = dialog.selected_file_path
+                stats = dialog.stats
+                pos_revenue = dialog.pos_revenue
+                bollettino_revenue = dialog.bollettino_revenue
+                period_type = dialog.period_type
+                period_label = dialog.period_label
+
+                # Generate PDF
+                success = generate_payment_report_pdf(
+                    output_path=file_path,
+                    period_type=period_type,
+                    period_label=period_label,
+                    stats=stats,
+                    pos_revenue=pos_revenue,
+                    bollettino_revenue=bollettino_revenue,
+                )
+
+                if success:
+                    QMessageBox.information(
+                        self,
+                        "Successo",
+                        f"Report PDF generato con successo!\n\nFile: {file_path}",
+                    )
+                    # Auto-open PDF
+                    try:
+                        os.startfile(str(file_path))
+                    except Exception as e:
+                        print(f"Could not auto-open PDF: {e}")
+                    
+                    self.status_bar.showMessage(
+                        "✓ Report PDF generato con successo", 5000
+                    )
+                else:
+                    QMessageBox.critical(
+                        self,
+                        "Errore",
+                        "Errore durante la generazione del report PDF.",
+                    )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore durante la generazione del report:\n{str(e)}",
+            )
 
     @pyqtSlot()
     def export_data(self):
