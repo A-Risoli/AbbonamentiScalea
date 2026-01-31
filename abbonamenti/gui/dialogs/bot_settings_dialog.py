@@ -21,6 +21,7 @@ from telegram import Bot
 
 from abbonamenti.bot.config import BotConfig
 from abbonamenti.gui.styles import get_stylesheet
+from abbonamenti.utils.autostart import set_autostart_enabled
 
 
 class BotSettingsDialog(QDialog):
@@ -59,6 +60,12 @@ class BotSettingsDialog(QDialog):
         # Enable checkbox
         self.enable_checkbox = QCheckBox("Abilita bot Telegram")
         telegram_layout.addRow("Stato:", self.enable_checkbox)
+
+        # Autostart checkbox
+        self.autostart_checkbox = QCheckBox(
+            "Avvia bot all'avvio del PC (in background)"
+        )
+        telegram_layout.addRow("Avvio automatico:", self.autostart_checkbox)
 
         # Token input (password field)
         self.token_input = QLineEdit()
@@ -120,6 +127,7 @@ class BotSettingsDialog(QDialog):
     def load_settings(self):
         """Load settings from config."""
         self.enable_checkbox.setChecked(self.config.enabled)
+        self.autostart_checkbox.setChecked(self.config.autostart_enabled)
 
         # Load decrypted token
         token = self.config.get_decrypted_token()
@@ -133,12 +141,19 @@ class BotSettingsDialog(QDialog):
 
     def save_settings(self):
         """Save settings to config."""
-        # Update config
-        self.config.enabled = self.enable_checkbox.isChecked()
-
-        # Encrypt and save token
+        # Validate token first if bot is being enabled
+        bot_enabled = self.enable_checkbox.isChecked()
         token = self.token_input.text().strip()
-        if token and ":" not in token:
+        
+        if bot_enabled and not token:
+            QMessageBox.warning(
+                self,
+                "Token mancante",
+                "Se abiliti il bot, devi inserire un token valido.",
+            )
+            return
+        
+        if bot_enabled and token and ":" not in token:
             # Validate token format (basic check - should contain colon)
             QMessageBox.warning(
                 self,
@@ -149,9 +164,29 @@ class BotSettingsDialog(QDialog):
             )
             return
 
+        # Parse user IDs first to validate them
+        user_ids_text = self.users_input.toPlainText()
+        user_ids = []
+        for line in user_ids_text.split("\n"):
+            line = line.strip()
+            if line and line.isdigit():
+                user_ids.append(int(line))
+
+        if bot_enabled and not user_ids:
+            QMessageBox.warning(
+                self,
+                "User ID mancanti",
+                "Se abiliti il bot, devi inserire almeno uno User ID Telegram autorizzato.",
+            )
+            return
+
+        # Update config
+        self.config.enabled = bot_enabled
+
+        # Encrypt and save token
         self.config.set_encrypted_token(token)
 
-        # Verify encryption worked
+        # Verify encryption worked if token is being set
         if token and not self.config.token_encrypted:
             QMessageBox.critical(
                 self,
@@ -162,33 +197,43 @@ class BotSettingsDialog(QDialog):
             return
 
         self.config.expiring_threshold_days = self.threshold_spinbox.value()
+        self.config.allowed_user_ids = user_ids
 
-        # Parse user IDs
-        user_ids_text = self.users_input.toPlainText()
-        user_ids = []
-        for line in user_ids_text.split("\n"):
-            line = line.strip()
-            if line and line.isdigit():
-                user_ids.append(int(line))
-
-        if not user_ids:
-            QMessageBox.warning(
+        # Handle autostart
+        self.config.autostart_enabled = self.autostart_checkbox.isChecked()
+        success, error_msg = set_autostart_enabled(self.config.autostart_enabled)
+        if not success:
+            QMessageBox.critical(
                 self,
-                "User ID mancanti",
-                "Inserisci almeno uno User ID Telegram autorizzato.",
+                "Errore avvio automatico",
+                "Impossibile aggiornare l'avvio automatico.\n\n"
+                f"Dettagli: {error_msg}",
             )
             return
 
-        self.config.allowed_user_ids = user_ids
-
-        # Save to file
-        self.config.save_config()
+        # Save to file - this is critical
+        try:
+            self.config.save_config()
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Errore salvataggio configurazione",
+                f"Impossibile salvare la configurazione.\n\n"
+                f"Errore: {str(e)}",
+            )
+            return
 
         # Show success message
+        status_msg = "✓ Configurazione bot salvata con successo."
+        if bot_enabled:
+            status_msg += "\n\nIl bot verrà riavviato con le nuove impostazioni."
+        else:
+            status_msg += "\n\nBot disabilitato."
+            
         QMessageBox.information(
             self,
             "Impostazioni salvate",
-            "✓ Configurazione bot salvata con successo.\n\nIl bot verrà riavviato con le nuove impostazioni.",
+            status_msg,
         )
 
         # Emit signal for main window to restart bot

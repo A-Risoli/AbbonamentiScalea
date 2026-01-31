@@ -4,6 +4,7 @@ import asyncio
 import logging
 
 from PyQt6.QtCore import QThread, pyqtSignal
+from telegram.error import NetworkError
 from telegram.ext import (
     ApplicationBuilder,
     CallbackQueryHandler,
@@ -78,7 +79,12 @@ class BotThread(QThread):
                 return
 
             # Build application
-            self.application = ApplicationBuilder().token(token).build()
+            # Note: Timeout is handled through requests.Request via HTTP pool
+            self.application = (
+                ApplicationBuilder()
+                .token(token)
+                .build()
+            )
 
             # Add command handlers
             self.application.add_handler(CommandHandler("start", start_handler))
@@ -99,9 +105,20 @@ class BotThread(QThread):
             logger.info("Bot Telegram avviato")
 
             # Run polling (blocking call) - include callback_query updates
-            self.application.run_polling(
-                allowed_updates=["message", "callback_query"]
-            )
+            try:
+                self.application.run_polling(
+                    allowed_updates=["message", "callback_query"],
+                    drop_pending_updates=False,
+                )
+            except NetworkError as e:
+                # Log network errors but don't treat as critical during shutdown
+                logger.debug(f"Errore di rete durante il polling: {e}")
+                if not self._stop_requested:
+                    error_msg = f"Errore rete bot: {e!s}"
+                    logger.error(error_msg)
+                    self.error_occurred.emit(error_msg)
+                    self.status_changed.emit("error")
+                    raise
 
         except Exception as e:
             error_msg = f"Errore bot: {e!s}"
@@ -123,17 +140,29 @@ class BotThread(QThread):
 
         if self.application:
             try:
-                # Stop and shutdown the application
+                # Stop the application properly
                 if self.loop and not self.loop.is_closed():
-                    # Schedule stop in the event loop
-                    asyncio.run_coroutine_threadsafe(
+                    # Schedule stop and shutdown in the event loop
+                    future = asyncio.run_coroutine_threadsafe(
                         self.application.stop(), self.loop
                     )
-                    asyncio.run_coroutine_threadsafe(
+                    try:
+                        # Wait for stop to complete (up to 5 seconds)
+                        future.result(timeout=5)
+                    except Exception as e:
+                        logger.debug(f"Errore durante stop: {e}")
+
+                    # Schedule shutdown
+                    future = asyncio.run_coroutine_threadsafe(
                         self.application.shutdown(), self.loop
                     )
+                    try:
+                        # Wait for shutdown to complete (up to 5 seconds)
+                        future.result(timeout=5)
+                    except Exception as e:
+                        logger.debug(f"Errore durante shutdown: {e}")
             except Exception as e:
-                logger.error(f"Errore durante l'arresto del bot: {e}")
+                logger.debug(f"Errore durante l'arresto del bot: {e}")
 
         # Stop event loop
         if self.loop and self.loop.is_running():

@@ -17,6 +17,7 @@ class BotConfig:
         self.allowed_user_ids: list[int] = []
         self.expiring_threshold_days = 7
         self.rate_limit_per_minute = 20
+        self.autostart_enabled = False
 
     @staticmethod
     def get_config_path() -> Path:
@@ -28,10 +29,14 @@ class BotConfig:
     @staticmethod
     def load_config() -> "BotConfig":
         """Load configuration from JSON file."""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         config = BotConfig()
         config_path = BotConfig.get_config_path()
 
         if not config_path.exists():
+            logger.info(f"[BOT CONFIG] File di configurazione non trovato: {config_path}")
             return config
 
         try:
@@ -43,7 +48,13 @@ class BotConfig:
             config.allowed_user_ids = data.get("allowed_user_ids", [])
             config.expiring_threshold_days = data.get("expiring_threshold_days", 7)
             config.rate_limit_per_minute = data.get("rate_limit_per_minute", 20)
-        except Exception:
+            config.autostart_enabled = data.get("autostart_enabled", False)
+            
+            logger.info(f"[BOT CONFIG] Configurazione caricata da {config_path}")
+            logger.debug(f"[BOT CONFIG] enabled={config.enabled}, token_present={bool(config.token_encrypted)}, users={len(config.allowed_user_ids)}")
+            
+        except Exception as e:
+            logger.error(f"[BOT CONFIG] Errore durante caricamento configurazione: {e}", exc_info=True)
             # Silently fail and return defaults
             pass
 
@@ -51,6 +62,9 @@ class BotConfig:
 
     def save_config(self) -> None:
         """Save configuration to JSON file."""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         try:
             config_path = BotConfig.get_config_path()
             data = {
@@ -59,11 +73,17 @@ class BotConfig:
                 "allowed_user_ids": self.allowed_user_ids,
                 "expiring_threshold_days": self.expiring_threshold_days,
                 "rate_limit_per_minute": self.rate_limit_per_minute,
+                "autostart_enabled": self.autostart_enabled,
             }
 
             with open(config_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
-        except Exception:
+            
+            logger.info(f"[BOT CONFIG] Configurazione salvata in {config_path}")
+            logger.debug(f"[BOT CONFIG] enabled={self.enabled}, token_present={bool(self.token_encrypted)}, users={len(self.allowed_user_ids)}")
+            
+        except Exception as e:
+            logger.error(f"[BOT CONFIG] Errore durante salvataggio configurazione: {e}", exc_info=True)
             # Silently fail - not critical
             pass
 

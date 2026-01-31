@@ -327,13 +327,23 @@ class MainWindow(QMainWindow):
     def init_bot(self):
         """Initialize and start bot thread if configured."""
         try:
+            if self.bot_thread and self.bot_thread.isRunning():
+                return
             config = BotConfig.load_config()
             
+            # Debug logging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"[BOT INIT] Bot status - enabled: {config.enabled}, has_token: {bool(config.get_decrypted_token())}, user_ids: {len(config.allowed_user_ids)}")
+            
             if not config.enabled or not config.get_decrypted_token():
-                self.update_bot_status("Non configurato")
+                status = "Non configurato" if not config.enabled else "Token mancante"
+                logger.info(f"[BOT INIT] Bot non avviato: {status}")
+                self.update_bot_status(status)
                 return
             
             # Start bot thread
+            logger.info("[BOT INIT] Avvio thread bot Telegram")
             self.bot_thread = BotThread(config)
             self.bot_thread.status_changed.connect(self.on_bot_status_changed)
             self.bot_thread.error_occurred.connect(self.on_bot_error)
@@ -341,6 +351,9 @@ class MainWindow(QMainWindow):
             
         except Exception as e:
             # Silent failure - GUI should continue to work
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"[BOT INIT] Errore durante init_bot: {e}", exc_info=True)
             self.update_bot_status(f"Errore: {e!s}")
 
     def show_bot_settings(self):
@@ -351,8 +364,14 @@ class MainWindow(QMainWindow):
 
     def restart_bot(self):
         """Restart bot thread with new configuration."""
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info("[BOT RESTART] Riavvio bot con nuova configurazione")
+        
         # Stop existing bot
         if self.bot_thread and self.bot_thread.isRunning():
+            logger.info("[BOT RESTART] Arresto bot thread precedente")
             self.bot_thread.stop()
             self.bot_thread.wait(5000)  # Wait up to 5 seconds
             self.bot_thread = None
@@ -862,5 +881,9 @@ def main():
 
     app = QApplication(sys.argv)
     window = MainWindow()
-    window.show()
+    autostart_mode = "--autostart" in sys.argv
+    if autostart_mode:
+        window.hide()
+    else:
+        window.show()
     sys.exit(app.exec())
