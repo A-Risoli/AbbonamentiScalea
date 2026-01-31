@@ -9,7 +9,7 @@
 ### Nuove Colonne
 - Aggiunto `address_encrypted BLOB` alla tabella `subscriptions`
 - Aggiunto `mobile_encrypted BLOB` alla tabella `subscriptions`
-- Entrambi i campi sono crittografati con AES-256-GCM
+- Entrambi i campi sono crittografati con Fernet
 
 ### Nuovi Indici
 - Aggiunto indice su `address_encrypted` per ricerche
