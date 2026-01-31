@@ -3,13 +3,14 @@
 import random
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Union
 
 import openpyxl
 from openpyxl.styles import Font
 from openpyxl.worksheet.worksheet import Worksheet
 
 
-def generate_test_excel(output_path: str | Path, num_rows: int = 800):
+def generate_test_excel(output_path: Union[str, Path], num_rows: int = 800):
     """
     Generate test Excel file with sample subscription data.
     

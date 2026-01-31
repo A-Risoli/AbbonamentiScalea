@@ -2,10 +2,10 @@
 
 import logging
 import time
+from typing import Optional
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.constants import ChatAction
-from telegram.ext import ContextTypes
+from telegram import ChatAction, InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import CallbackContext
 
 from abbonamenti.bot.auth import require_authorized
 from abbonamenti.bot.config import BotConfig
@@ -17,9 +17,9 @@ from abbonamenti.database.manager import DatabaseManager
 logger = logging.getLogger(__name__)
 
 # Global instances (will be set by runner)
-db_manager: DatabaseManager | None = None
-rate_limiter: RateLimiter | None = None
-query_logger: BotQueryLogger | None = None
+db_manager: Optional[DatabaseManager] = None
+rate_limiter: Optional[RateLimiter] = None
+query_logger: Optional[BotQueryLogger] = None
 
 
 def initialize_handlers(
@@ -32,7 +32,7 @@ def initialize_handlers(
     query_logger = logger_instance
 
 
-async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+def start_handler(update: Update, context: CallbackContext) -> None:
     """
     Handler for /start command.
 
@@ -61,12 +61,12 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "Digita la targa senza spazi, il resto lo faccio io! 🚗"
     )
 
-    await update.message.reply_text(
+    update.message.reply_text(
         welcome_text, reply_markup=reply_markup, parse_mode="HTML"
     )
 
 
-async def myid_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+def myid_handler(update: Update, context: CallbackContext) -> None:
     """
     Handler for /myid command and 🆔 button.
 
@@ -77,12 +77,12 @@ async def myid_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
 
     user_id = update.effective_user.id
-    await update.message.reply_text(
+    update.message.reply_text(
         f"Il tuo User ID è: <code>{user_id}</code>", parse_mode="HTML"
     )
 
 
-async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+def help_handler(update: Update, context: CallbackContext) -> None:
     """
     Handler for /help command and ❓ button.
 
@@ -110,12 +110,10 @@ async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "Usa il pulsante 🆔 per scoprire il tuo User ID"
     )
 
-    await update.message.reply_text(help_text, parse_mode="HTML")
+    update.message.reply_text(help_text, parse_mode="HTML")
 
 
-async def button_callback_handler(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+def button_callback_handler(update: Update, context: CallbackContext) -> None:
     """
     Handler for inline button callbacks.
 
@@ -126,7 +124,7 @@ async def button_callback_handler(
         return
 
     # CRITICAL: Answer callback immediately to prevent timeout
-    await query.answer()
+    query.answer()
     
     logger.info(f"Button pressed: {query.data} by user {query.from_user.id if query.from_user else 'unknown'}")
 
@@ -134,7 +132,7 @@ async def button_callback_handler(
         # Show user ID
         if query.from_user:
             user_id = query.from_user.id
-            await query.message.reply_text(
+            query.message.reply_text(
                 f"Il tuo User ID è: <code>{user_id}</code>", parse_mode="HTML"
             )
             logger.info(f"Sent user ID to {user_id}")
@@ -157,32 +155,17 @@ async def button_callback_handler(
             "<b>4️⃣ Il Tuo ID</b>\n"
             "Usa il pulsante 🆔 per scoprire il tuo User ID"
         )
-        await query.message.reply_text(help_text, parse_mode="HTML")
+        query.message.reply_text(help_text, parse_mode="HTML")
         logger.info(f"Sent help to user {query.from_user.id if query.from_user else 'unknown'}")
 
 
-@require_authorized
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Handler for all text messages (non-command).
-
-    Processes license plate queries.
-    Requires authorization for plate checks.
-    """
-    if not update.message or not update.message.text or not update.effective_user:
-        return
-
-    text = update.message.text.strip()
-    user_id = update.effective_user.id
-    username = update.effective_user.username
-
-    # Everything is treated as a license plate query
-    # Sanitize input: remove spaces and uppercase
-    plate = text.upper().replace(" ", "").strip()
-
+def _process_plate_query(
+    update: Update, plate: str, user_id: int, username: Optional[str]
+) -> None:
+    """Process a license plate query and reply to the user."""
     # Validate plate format (basic check)
     if not plate or len(plate) < 5:
-        await update.message.reply_text(
+        update.message.reply_text(
             "❌ Formato targa non valido. Usa: AB123CD"
         )
         return
@@ -190,13 +173,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     # Check rate limit
     if rate_limiter and not rate_limiter.is_allowed(user_id):
         wait_time = rate_limiter.get_wait_time(user_id)
-        await update.message.reply_text(
+        update.message.reply_text(
             f"⏳ Limite raggiunto! Max 20 richieste/minuto. Attendi {wait_time} secondi."
         )
         return
 
     # Show typing indicator
-    await update.message.chat.send_action(ChatAction.TYPING)
+    update.message.chat.send_action(ChatAction.TYPING)
 
     # Load config for threshold
     config = BotConfig.load_config()
@@ -206,7 +189,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     # Check plate validity
     try:
-        status, message, expiry_date = check_plate_validity(
+        status, message, _ = check_plate_validity(
             db_manager, plate, config.expiring_threshold_days
         )
     except Exception as e:
@@ -228,4 +211,41 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
 
     # Send response
-    await update.message.reply_text(message, parse_mode="HTML")
+    update.message.reply_text(message, parse_mode="HTML")
+
+
+@require_authorized
+def check_handler(update: Update, context: CallbackContext) -> None:
+    """Handler for /check command with plate argument."""
+    if not update.message or not update.message.text or not update.effective_user:
+        return
+
+    parts = update.message.text.strip().split(maxsplit=1)
+    if len(parts) < 2:
+        update.message.reply_text("Uso: /check TARGA")
+        return
+
+    plate = parts[1].upper().replace(" ", "").strip()
+    user_id = update.effective_user.id
+    username = update.effective_user.username
+    _process_plate_query(update, plate, user_id, username)
+
+
+@require_authorized
+def handle_message(update: Update, context: CallbackContext) -> None:
+    """
+    Handler for all text messages (non-command).
+
+    Processes license plate queries.
+    Requires authorization for plate checks.
+    """
+    if not update.message or not update.message.text or not update.effective_user:
+        return
+
+    text = update.message.text.strip()
+    user_id = update.effective_user.id
+    username = update.effective_user.username
+
+    # Everything is treated as a license plate query
+    plate = text.upper().replace(" ", "").strip()
+    _process_plate_query(update, plate, user_id, username)

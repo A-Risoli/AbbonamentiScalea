@@ -4,6 +4,7 @@ import json
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 from abbonamenti.utils.paths import get_app_data_dir
 
@@ -24,7 +25,7 @@ class BotQueryLogger:
     def log_query(
         self,
         telegram_user_id: int,
-        telegram_username: str | None,
+        telegram_username: Optional[str],
         plate_searched: str,
         result_status: str,
         response_time_ms: float,

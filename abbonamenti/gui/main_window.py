@@ -1,9 +1,10 @@
 import sys
 from datetime import datetime
 
-from PyQt6.QtCore import Qt, pyqtSlot
-from PyQt6.QtGui import QAction, QIcon, QPalette
-from PyQt6.QtWidgets import (
+from PyQt5.QtCore import Qt, pyqtSlot
+from PyQt5.QtGui import QIcon, QPalette
+from PyQt5.QtWidgets import (
+    QAction,
     QDialog,
     QHeaderView,
     QLabel,
@@ -62,11 +63,20 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1400, 900)
         self.resize(1600, 1000)
 
-        # Set window icon if available
+        # Set window icon if available (with fallback)
         from pathlib import Path
         icon_path = Path(__file__).parent.parent.parent / "assets" / "icon.ico"
         if icon_path.exists():
-            self.setWindowIcon(QIcon(str(icon_path)))
+            icon = QIcon(str(icon_path))
+        else:
+            icon = self.style().standardIcon(QStyle.SP_ComputerIcon)
+
+        if not icon.isNull():
+            self.setWindowIcon(icon)
+            from PyQt5.QtWidgets import QApplication
+            app = QApplication.instance()
+            if app:
+                app.setWindowIcon(icon)
 
         # Apply modern stylesheet
         self.setStyleSheet(get_stylesheet())
@@ -83,38 +93,38 @@ class MainWindow(QMainWindow):
         file_menu = menubar.addMenu("&File")
 
         export_action = QAction("Esporta CSV", self)
-        export_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton))
+        export_action.setIcon(self.style().standardIcon(QStyle.SP_DialogSaveButton))
         export_action.triggered.connect(self.export_data)
         file_menu.addAction(export_action)
 
         self.import_action = QAction("Importa Excel", self)
-        self.import_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton))
+        self.import_action.setIcon(self.style().standardIcon(QStyle.SP_DialogOpenButton))
         self.import_action.triggered.connect(self.import_from_excel)
         file_menu.addAction(self.import_action)
 
         file_menu.addSeparator()
 
         exit_action = QAction("Esci", self)
-        exit_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogCloseButton))
+        exit_action.setIcon(self.style().standardIcon(QStyle.SP_DialogCloseButton))
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
 
         tools_menu = menubar.addMenu("&Strumenti")
 
         backup_action = QAction("Backup Database", self)
-        backup_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon))
+        backup_action.setIcon(self.style().standardIcon(QStyle.SP_DriveHDIcon))
         backup_action.triggered.connect(self.backup_database)
         tools_menu.addAction(backup_action)
 
         restore_action = QAction("Ripristina Backup", self)
-        restore_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload))
+        restore_action.setIcon(self.style().standardIcon(QStyle.SP_BrowserReload))
         restore_action.triggered.connect(self.restore_database)
         tools_menu.addAction(restore_action)
 
         tools_menu.addSeparator()
 
         key_export_action = QAction("🔑 Esporta Chiave di Recupero", self)
-        key_export_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton))
+        key_export_action.setIcon(self.style().standardIcon(QStyle.SP_DialogSaveButton))
         key_export_action.triggered.connect(self.export_recovery_keys)
         key_export_action.setToolTip(
             "CRITICO: Esporta le chiavi di cifratura per recuperare i backup"
@@ -122,7 +132,7 @@ class MainWindow(QMainWindow):
         tools_menu.addAction(key_export_action)
 
         key_import_action = QAction("Ripristina Chiavi di Recupero", self)
-        key_import_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton))
+        key_import_action.setIcon(self.style().standardIcon(QStyle.SP_DialogOpenButton))
         key_import_action.triggered.connect(self.import_recovery_keys)
         key_import_action.setToolTip(
             "Usa il file chiavi .enc/.zip per poter aprire i backup cifrati"
@@ -133,7 +143,7 @@ class MainWindow(QMainWindow):
 
         bot_settings_action = QAction("🤖 Impostazioni Bot", self)
         bot_settings_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
+            self.style().standardIcon(QStyle.SP_ComputerIcon)
         )
         bot_settings_action.triggered.connect(self.show_bot_settings)
         tools_menu.addAction(bot_settings_action)
@@ -141,14 +151,14 @@ class MainWindow(QMainWindow):
         tools_menu.addSeparator()
 
         audit_action = QAction("Visualizza Log Audit", self)
-        audit_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxInformation))
+        audit_action.setIcon(self.style().standardIcon(QStyle.SP_MessageBoxInformation))
         audit_action.triggered.connect(self.show_audit_log)
         tools_menu.addAction(audit_action)
 
         help_menu = menubar.addMenu("&Aiuto")
 
         about_action = QAction("Informazioni", self)
-        about_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxInformation))
+        about_action.setIcon(self.style().standardIcon(QStyle.SP_MessageBoxInformation))
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
 
@@ -275,7 +285,7 @@ class MainWindow(QMainWindow):
         self.table_view.setSortingEnabled(True)
         
         # Set default sort order: Protocol ID descending (newest first)
-        self.table_view.sortByColumn(0, Qt.SortOrder.DescendingOrder)
+        self.table_view.sortByColumn(0, Qt.DescendingOrder)
 
         # Set row height for better visibility
         self.table_view.verticalHeader().setDefaultSectionSize(28)
@@ -303,12 +313,12 @@ class MainWindow(QMainWindow):
         if icon_path.exists():
             icon = QIcon(str(icon_path))
         else:
-            icon = self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
+            icon = self.style().standardIcon(QStyle.SP_ComputerIcon)
         
         self.tray_icon = QSystemTrayIcon(icon, self)
         
         # Create tray menu
-        from PyQt6.QtWidgets import QMenu
+        from PyQt5.QtWidgets import QMenu
         tray_menu = QMenu()
         
         show_action = QAction("Mostra Finestra", self)
@@ -372,7 +382,7 @@ class MainWindow(QMainWindow):
         """Show bot settings dialog."""
         dialog = BotSettingsDialog(self)
         dialog.settings_changed.connect(self.restart_bot)
-        dialog.exec()
+        dialog.exec_()
 
     def restart_bot(self):
         """Restart bot thread with new configuration."""
@@ -505,7 +515,7 @@ class MainWindow(QMainWindow):
     @pyqtSlot()
     def add_subscription(self):
         dialog = AddEditSubscriptionDialog(self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
+        if dialog.exec_() == QDialog.Accepted:
             data = dialog.get_data()
             try:
                 protocol_id = self.db_manager.add_subscription(
@@ -550,7 +560,7 @@ class MainWindow(QMainWindow):
         selected_row = selected_indexes[0].row()
         protocol_id = str(
             self.model.data(
-                self.model.index(selected_row, 0), Qt.ItemDataRole.DisplayRole
+                self.model.index(selected_row, 0), Qt.DisplayRole
             )
         )
         subscription = self.db_manager.get_subscription(protocol_id)
@@ -560,7 +570,7 @@ class MainWindow(QMainWindow):
             return
 
         dialog = AddEditSubscriptionDialog(self, subscription)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
+        if dialog.exec_() == QDialog.Accepted:
             data = dialog.get_data()
             try:
                 success = self.db_manager.update_subscription(
@@ -596,7 +606,7 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot()
     def delete_subscription(self):
-        from PyQt6.QtWidgets import QDialog
+        from PyQt5.QtWidgets import QDialog
 
         selection_model = self.table_view.selectionModel()
         if not selection_model.hasSelection():
@@ -612,7 +622,7 @@ class MainWindow(QMainWindow):
         selected_row = selected_indexes[0].row()
         protocol_id = str(
             self.model.data(
-                self.model.index(selected_row, 0), Qt.ItemDataRole.DisplayRole
+                self.model.index(selected_row, 0), Qt.DisplayRole
             )
         )
         subscription = self.db_manager.get_subscription(protocol_id)
@@ -622,7 +632,7 @@ class MainWindow(QMainWindow):
             return
 
         dialog = DeleteSubscriptionDialog(self, subscription)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
+        if dialog.exec_() == QDialog.Accepted:
             reason = dialog.get_reason()
             try:
                 success = self.db_manager.delete_subscription(protocol_id, reason)
@@ -647,13 +657,13 @@ class MainWindow(QMainWindow):
     @pyqtSlot()
     def show_audit_log(self):
         viewer = AuditLogViewer(self)
-        viewer.exec()
+        viewer.exec_()
 
     @pyqtSlot()
     def show_statistics(self):
         """Show payment statistics dialog"""
         viewer = StatisticsViewer(self.db_manager, self)
-        viewer.exec()
+        viewer.exec_()
 
     @pyqtSlot()
     def generate_pdf_report(self):
@@ -664,7 +674,7 @@ class MainWindow(QMainWindow):
         try:
             # Show dialog to configure report
             dialog = PaymentReportDialog(self.db_manager, self)
-            if dialog.exec() == QDialog.DialogCode.Accepted:
+            if dialog.exec_() == QDialog.Accepted:
                 # Get report data from dialog
                 file_path = dialog.selected_file_path
                 stats = dialog.stats
@@ -715,7 +725,7 @@ class MainWindow(QMainWindow):
     @pyqtSlot()
     def export_data(self):
         import csv
-        from PyQt6.QtWidgets import QFileDialog
+        from PyQt5.QtWidgets import QFileDialog
 
         file_path, _ = QFileDialog.getSaveFileName(
             self, "Esporta Abbonamenti", "", "File CSV (*.csv)"
@@ -787,7 +797,7 @@ class MainWindow(QMainWindow):
         
         dialog = ImportDialog(self.db_manager, self)
         dialog.import_completed.connect(self.on_import_completed)
-        dialog.exec()
+        dialog.exec_()
 
     @pyqtSlot(int)
     def on_import_completed(self, count: int):
@@ -811,7 +821,7 @@ class MainWindow(QMainWindow):
         """Open backup dialog to create encrypted backup"""
         dialog = BackupDialog(self.db_manager, self)
         dialog.backup_completed.connect(self.on_backup_completed)
-        dialog.exec()
+        dialog.exec_()
     
     @pyqtSlot(str)
     def on_backup_completed(self, backup_path: str):
@@ -828,7 +838,7 @@ class MainWindow(QMainWindow):
             self,
             "Backup Completato",
             f"Backup salvato in:\n{backup_path}\n\nVuoi aprire la cartella?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.Yes | QMessageBox.No,
             QMessageBox.StandardButton.No
         )
         
@@ -840,7 +850,7 @@ class MainWindow(QMainWindow):
         """Open restore dialog to restore encrypted backup"""
         dialog = RestoreDialog(self.db_manager, self)
         dialog.restore_completed.connect(self.on_restore_completed)
-        dialog.exec()
+        dialog.exec_()
     
     @pyqtSlot()
     def on_restore_completed(self):
@@ -880,13 +890,13 @@ class MainWindow(QMainWindow):
             "• Conservale in cassaforte\n"
             "• Crea copie multiple in luoghi sicuri diversi\n\n"
             "Vuoi procedere con l'esportazione?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.Yes | QMessageBox.No,
             QMessageBox.StandardButton.No
         )
         
         if reply == QMessageBox.StandardButton.Yes:
             dialog = KeyExportDialog(get_keys_dir(), self)
-            dialog.exec()
+            dialog.exec_()
 
     @pyqtSlot()
     def import_recovery_keys(self):
@@ -894,7 +904,7 @@ class MainWindow(QMainWindow):
         from abbonamenti.utils.paths import get_keys_dir
 
         dialog = KeyImportDialog(get_keys_dir(), self)
-        dialog.exec()
+        dialog.exec_()
 
     @pyqtSlot()
     def show_about(self):
@@ -905,7 +915,7 @@ class MainWindow(QMainWindow):
             "\n\nRisoli Antonio\n\n"
             "Sistema Abbonamenti Città di Scalea\n\n"
             "Sicuro, affidabile, facile da usare.\n\n"
-            "Versione 0.3.0",
+            "Versione 0.3.0.7",
         )
 
     def closeEvent(self, event):
@@ -946,13 +956,26 @@ class MainWindow(QMainWindow):
 
 
 def main():
-    from PyQt6.QtWidgets import QApplication
+    from pathlib import Path
+
+    from PyQt5.QtGui import QIcon
+    from PyQt5.QtWidgets import QApplication
 
     app = QApplication(sys.argv)
+    icon_path = Path(__file__).parent.parent.parent / "assets" / "icon.ico"
+    if icon_path.exists():
+        icon = QIcon(str(icon_path))
+    else:
+        icon = QIcon()
+
+    if not icon.isNull():
+        app.setWindowIcon(icon)
     window = MainWindow()
     autostart_mode = "--autostart" in sys.argv
     if autostart_mode:
         window.hide()
     else:
         window.show()
-    sys.exit(app.exec())
+        if not icon.isNull():
+            window.setWindowIcon(icon)
+    sys.exit(app.exec_())

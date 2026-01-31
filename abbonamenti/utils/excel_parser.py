@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
@@ -17,9 +17,9 @@ from abbonamenti.validators import (
 
 
 def read_excel_file(
-    file_path: str | Path,
-    column_mapping: dict[str, str],
-) -> tuple[bool, str, list[dict]]:
+    file_path: Union[str, Path],
+    column_mapping: Dict[str, str],
+) -> Tuple[bool, str, List[Dict]]:
     """
     Read Excel file and extract data according to column mapping.
 
@@ -141,10 +141,10 @@ def read_excel_file(
 
 
 def validate_all_rows(
-    data_rows: list[dict],
+    data_rows: List[Dict],
     db_manager,
-    progress_callback: Optional[callable] = None,
-) -> tuple[bool, list[tuple[int, str, str]], list[dict]]:
+    progress_callback: Optional[Callable[[int, int], None]] = None,
+) -> Tuple[bool, List[Tuple[int, str, str]], List[Dict]]:
     """
     Validate all data rows for import.
 
@@ -169,7 +169,7 @@ def validate_all_rows(
     total = len(data_rows)
 
     # Track plates within file for duplicate detection
-    file_plates: dict[str, list[tuple[int, object, object]]] = {}
+    file_plates: Dict[str, List[Tuple[int, object, object]]] = {}
 
     for idx, row in enumerate(data_rows):
         row_num = row.get("_row_number", idx + 2)

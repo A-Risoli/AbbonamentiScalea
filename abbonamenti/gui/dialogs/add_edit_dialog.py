@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta
+from typing import Optional
 
-from PyQt6.QtCore import QDate, Qt, pyqtSlot
-from PyQt6.QtGui import QFont
-from PyQt6.QtWidgets import (
+from PyQt5.QtCore import QDate, Qt, pyqtSlot
+from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import (
     QComboBox,
     QDateEdit,
     QDialog,
@@ -24,7 +25,7 @@ from abbonamenti.gui.styles import get_stylesheet, get_color
 
 
 class AddEditSubscriptionDialog(QDialog):
-    def __init__(self, parent=None, subscription: Subscription | None = None):
+    def __init__(self, parent=None, subscription: Optional[Subscription] = None):
         super().__init__(parent)
         self.subscription = subscription
         self.init_ui()
@@ -271,7 +272,7 @@ class AddEditSubscriptionDialog(QDialog):
 
 
 class DeleteSubscriptionDialog(QDialog):
-    def __init__(self, parent=None, subscription: Subscription | None = None):
+    def __init__(self, parent=None, subscription: Optional[Subscription] = None):
         super().__init__(parent)
         self.subscription = subscription
         self.init_ui()

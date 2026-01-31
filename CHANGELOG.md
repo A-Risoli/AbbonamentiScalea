@@ -1,6 +1,6 @@
 # CHANGELOG - Gestione Abbonamenti
 
-## Version 0.3.0 - 2025-01-31
+## Version 0.3.0.7 - 2025-01-31
 
 ### Nuove Funzionalità e Modifiche
 

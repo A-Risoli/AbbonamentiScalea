@@ -2,6 +2,7 @@ import json
 import os
 import base64
 from pathlib import Path
+from typing import Optional, Tuple
 
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes, hmac, serialization
@@ -69,7 +70,9 @@ class CryptoManager:
             return False
 
 
-def derive_key_from_passphrase(passphrase: str, salt: bytes | None = None) -> tuple[bytes, bytes]:
+def derive_key_from_passphrase(
+    passphrase: str, salt: Optional[bytes] = None
+) -> Tuple[bytes, bytes]:
     """
     Derive a 32-byte encryption key from a passphrase using PBKDF2.
     
@@ -121,7 +124,7 @@ class KeyManager:
         self._private_key: rsa.RSAPrivateKey = self._load_or_generate_keys()[0]
         self._public_key: rsa.RSAPublicKey = self._load_or_generate_keys()[1]
 
-    def _load_or_generate_keys(self) -> tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey]:
+    def _load_or_generate_keys(self) -> Tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey]:
         private_key_path = self.keys_dir / "private_key.pem"
         public_key_path = self.keys_dir / "public_key.pem"
 

@@ -2,13 +2,14 @@
 
 import re
 from datetime import date, timedelta
+from typing import Optional, Tuple
 
 from abbonamenti.database.manager import DatabaseManager
 
 
 def check_plate_validity(
     db_manager: DatabaseManager, plate: str, threshold_days: int = 7
-) -> tuple[str, str, date | None]:
+) -> Tuple[str, str, Optional[date]]:
     """
     Check license plate validity across all subscriptions.
 

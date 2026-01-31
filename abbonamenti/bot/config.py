@@ -3,6 +3,7 @@
 import base64
 import json
 from pathlib import Path
+from typing import List
 
 from abbonamenti.security.crypto import CryptoManager
 from abbonamenti.utils.paths import get_app_data_dir, get_keys_dir
@@ -14,7 +15,7 @@ class BotConfig:
     def __init__(self):
         self.enabled = False
         self.token_encrypted = ""
-        self.allowed_user_ids: list[int] = []
+        self.allowed_user_ids: List[int] = []
         self.expiring_threshold_days = 7
         self.rate_limit_per_minute = 20
         self.autostart_enabled = False

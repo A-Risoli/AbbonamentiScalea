@@ -53,7 +53,7 @@ See **BOT_REFACTOR_IMPLEMENTATION.md** for complete testing checklist.
 
 ## ✨ Features Maintained
 
-✅ Encryption (AES-256 token storage)  
+✅ Encryption (Fernet)  
 ✅ Authorization (require_authorized decorator)  
 ✅ Rate limiting (20 requests/minute per user)  
 ✅ Audit logging (JSONL format)  

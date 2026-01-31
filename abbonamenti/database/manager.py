@@ -9,7 +9,7 @@ import tempfile
 import zipfile
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 from abbonamenti.database.schema import AuditLogEntry, Schema, Subscription
 from abbonamenti.security.crypto import CryptoManager, derive_key_from_passphrase, encrypt_with_key, decrypt_with_key
@@ -363,8 +363,8 @@ class DatabaseManager:
         )
 
     def _get_subscriptions_for_stats(
-        self, date_from: datetime | None = None, date_to: datetime | None = None
-    ) -> list[dict]:
+        self, date_from: Optional[datetime] = None, date_to: Optional[datetime] = None
+    ) -> List[Dict[str, object]]:
         """
         Lightweight query for statistics - only decrypts payment_details.
         Returns dict with minimal fields needed for analytics.
@@ -391,9 +391,6 @@ class DatabaseManager:
             query += " WHERE " + " AND ".join(where_clauses)
         
         query += " ORDER BY protocol_id"
-        
-        print(f"DEBUG _get_subscriptions_for_stats query: {query}")
-        print(f"DEBUG _get_subscriptions_for_stats params: {params}")
         
         cursor.execute(query, params)
         rows = cursor.fetchall()
@@ -427,7 +424,7 @@ class DatabaseManager:
             return "BOLLETTINO"
         return normalized
 
-    def get_all_subscriptions(self) -> list[Subscription]:
+    def get_all_subscriptions(self) -> List[Subscription]:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -464,7 +461,7 @@ class DatabaseManager:
 
         return subscriptions
 
-    def search_subscriptions(self, query: str) -> list[Subscription]:
+    def search_subscriptions(self, query: str) -> List[Subscription]:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -544,7 +541,7 @@ class DatabaseManager:
 
     def get_audit_log_entries(
         self, operation_type: Optional[str] = None, limit: int = 100
-    ) -> list[AuditLogEntry]:
+    ) -> List[AuditLogEntry]:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -590,7 +587,7 @@ class DatabaseManager:
 
         return entries
 
-    def verify_data_integrity(self) -> tuple[bool, list[str]]:
+    def verify_data_integrity(self) -> Tuple[bool, List[str]]:
         issues = []
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -647,11 +644,11 @@ class DatabaseManager:
 
     def get_payment_statistics(
         self,
-        year: int | None = None,
-        month: int | None = None,
-        date_from: datetime | None = None,
-        date_to: datetime | None = None,
-    ) -> dict:
+        year: Optional[int] = None,
+        month: Optional[int] = None,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+    ) -> Dict[str, object]:
         """Get payment statistics for a given year and/or month, or date range"""
         # Use lightweight query for performance
         subs = self._get_subscriptions_for_stats(date_from, date_to)
@@ -691,7 +688,9 @@ class DatabaseManager:
             "bollettino_count": bollettino_count,
         }
 
-    def get_monthly_revenue(self, year: int | None = None, month: int | None = None) -> list[tuple[str, float]]:
+    def get_monthly_revenue(
+        self, year: Optional[int] = None, month: Optional[int] = None
+    ) -> List[Tuple[str, float]]:
         """Get revenue grouped by month, respecting optional year/month filters"""
         subs = self._get_subscriptions_for_stats()
 
@@ -702,7 +701,7 @@ class DatabaseManager:
             subs = [sub for sub in subs if sub["subscription_start"].month == month]
 
         # Group by month (or single month if filtered)
-        monthly: dict[str, float] = {}
+        monthly: Dict[str, float] = {}
         for sub in subs:
             month_label = sub["subscription_start"].strftime("%b %Y")
             if month_label not in monthly:
@@ -713,8 +712,8 @@ class DatabaseManager:
         return sorted(monthly.items(), key=lambda x: x[0])
 
     def get_payment_methods_breakdown(
-        self, year: int | None = None, month: int | None = None
-    ) -> dict[str, int]:
+        self, year: Optional[int] = None, month: Optional[int] = None
+    ) -> Dict[str, int]:
         """Get count of subscriptions by payment method"""
         subs = self._get_subscriptions_for_stats()
 
@@ -733,7 +732,9 @@ class DatabaseManager:
 
         return methods
 
-    def get_revenue_trend(self, year: int | None = None, month: int | None = None) -> list[tuple[str, float]]:
+    def get_revenue_trend(
+        self, year: Optional[int] = None, month: Optional[int] = None
+    ) -> List[Tuple[str, float]]:
         """Get cumulative revenue trend over time, respecting optional filters"""
         subs = self._get_subscriptions_for_stats()
 
@@ -748,7 +749,7 @@ class DatabaseManager:
 
         # Calculate cumulative revenue
         cumulative = 0.0
-        trend: list[tuple[str, float]] = []
+        trend: List[Tuple[str, float]] = []
         for sub in subs:
             cumulative += sub["payment_details"]
             # Show date with year when spanning multiple years
@@ -761,7 +762,9 @@ class DatabaseManager:
 
         return trend
 
-    def get_subscriptions_per_month(self, year: int | None = None, month: int | None = None) -> list[tuple[str, int]]:
+    def get_subscriptions_per_month(
+        self, year: Optional[int] = None, month: Optional[int] = None
+    ) -> List[Tuple[str, int]]:
         """Get count of subscriptions created per month, respecting filters"""
         subs = self._get_subscriptions_for_stats()
 
@@ -772,7 +775,7 @@ class DatabaseManager:
             subs = [sub for sub in subs if sub["subscription_start"].month == month]
 
         # Group by month
-        monthly: dict[str, int] = {}
+        monthly: Dict[str, int] = {}
         for sub in subs:
             month_label = sub["subscription_start"].strftime("%b %Y")
             if month_label not in monthly:
@@ -784,7 +787,7 @@ class DatabaseManager:
 
     def get_subscriptions_by_plate(
         self, license_plate: str
-    ) -> list[dict]:
+    ) -> List[Dict]:
         """
         Get all subscriptions for a specific license plate.
         
@@ -823,10 +826,10 @@ class DatabaseManager:
 
     def bulk_add_subscriptions(
         self,
-        subscriptions: list[dict],
+        subscriptions: List[Dict],
         reason: str,
-        progress_callback: Optional[callable] = None,
-    ) -> tuple[bool, str]:
+        progress_callback: Optional[Callable[[int, int], None]] = None,
+    ) -> Tuple[bool, str]:
         """
         Add multiple subscriptions in a single transaction.
         
@@ -1010,8 +1013,8 @@ class DatabaseManager:
         self,
         output_dir: Path,
         passphrase: str,
-        progress_callback: Optional[callable] = None,
-    ) -> tuple[bool, str]:
+        progress_callback: Optional[Callable[[int, int, str], None]] = None,
+    ) -> Tuple[bool, str]:
         """
         Create an encrypted backup of the database and keys.
         
@@ -1124,12 +1127,13 @@ class DatabaseManager:
             if temp_zip and temp_zip.exists():
                 temp_zip.unlink()
             return False, f"Errore durante il backup: {str(e)}"
+
     def restore_secure_backup(
         self,
         backup_path: Path,
         passphrase: str,
-        progress_callback: Optional[callable] = None,
-    ) -> tuple[bool, str]:
+        progress_callback: Optional[Callable[[int, int, str], None]] = None,
+    ) -> Tuple[bool, str]:
         """
         Restore database and keys from an encrypted backup.
         

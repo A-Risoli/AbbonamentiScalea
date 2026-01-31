@@ -2,10 +2,10 @@
 
 import re
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Tuple, Union
 
 
-def validate_license_plate(plate: str) -> tuple[bool, str]:
+def validate_license_plate(plate: str) -> Tuple[bool, str]:
     """
     Validate license plate format.
     
@@ -26,7 +26,7 @@ def validate_license_plate(plate: str) -> tuple[bool, str]:
     return True, ""
 
 
-def validate_email(email: str) -> tuple[bool, str]:
+def validate_email(email: str) -> Tuple[bool, str]:
     """
     Validate email format.
     
@@ -46,7 +46,9 @@ def validate_email(email: str) -> tuple[bool, str]:
     return True, ""
 
 
-def validate_date(date_str: str | datetime) -> tuple[bool, str, Optional[datetime]]:
+def validate_date(
+    date_str: Union[str, datetime]
+) -> Tuple[bool, str, Optional[datetime]]:
     """
     Validate and parse date with auto-detection of multiple formats.
     
@@ -106,7 +108,9 @@ def validate_date(date_str: str | datetime) -> tuple[bool, str, Optional[datetim
     return False, f"Formato data non riconosciuto: {date_str}", None
 
 
-def validate_payment_amount(amount: str | float) -> tuple[bool, str, Optional[float]]:
+def validate_payment_amount(
+    amount: Union[str, float]
+) -> Tuple[bool, str, Optional[float]]:
     """
     Validate payment amount.
     
@@ -141,7 +145,7 @@ def validate_payment_amount(amount: str | float) -> tuple[bool, str, Optional[fl
         return False, f"Importo non valido: {amount}", None
 
 
-def validate_payment_method(method: str) -> tuple[bool, str]:
+def validate_payment_method(method: str) -> Tuple[bool, str]:
     """
     Validate payment method.
     

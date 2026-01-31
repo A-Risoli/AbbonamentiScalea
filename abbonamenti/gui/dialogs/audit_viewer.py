@@ -1,8 +1,9 @@
 import json
+from typing import List, Optional
 
-from PyQt6.QtCore import QAbstractTableModel, QModelIndex, Qt, pyqtSlot
-from PyQt6.QtGui import QColor
-from PyQt6.QtWidgets import (
+from PyQt5.QtCore import QAbstractTableModel, QModelIndex, Qt, pyqtSlot
+from PyQt5.QtGui import QColor
+from PyQt5.QtWidgets import (
     QComboBox,
     QDialog,
     QHBoxLayout,
@@ -20,9 +21,9 @@ from abbonamenti.utils.paths import get_database_path, get_keys_dir
 
 
 class AuditLogModel(QAbstractTableModel):
-    def __init__(self, entries: list[AuditLogEntry] | None = None):
+    def __init__(self, entries: Optional[List[AuditLogEntry]] = None):
         super().__init__()
-        self.entries: list[AuditLogEntry] = [] if entries is None else entries
+        self.entries: List[AuditLogEntry] = [] if entries is None else entries
         self.headers = [
             "Timestamp",
             "Operazione",
@@ -38,14 +39,14 @@ class AuditLogModel(QAbstractTableModel):
     def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:
         return len(self.headers)
 
-    def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
+    def data(self, index: QModelIndex, role: int = Qt.DisplayRole):
         if not index.isValid():
             return None
 
         entry = self.entries[index.row()]
         column = index.column()
 
-        if role == Qt.ItemDataRole.DisplayRole:
+        if role == Qt.DisplayRole:
             if column == 0:
                 return entry.timestamp.strftime("%d/%m/%Y %H:%M:%S")
             elif column == 1:
@@ -63,7 +64,7 @@ class AuditLogModel(QAbstractTableModel):
             elif column == 5:
                 return "Visualizza"
 
-        elif role == Qt.ItemDataRole.BackgroundRole:
+        elif role == Qt.BackgroundRole:
             if column == 1:
                 if entry.operation_type == "INSERT":
                     return QColor(200, 230, 200)
@@ -72,9 +73,9 @@ class AuditLogModel(QAbstractTableModel):
                 elif entry.operation_type == "DELETE":
                     return QColor(255, 200, 200)
 
-        elif role == Qt.ItemDataRole.TextAlignmentRole:
+        elif role == Qt.TextAlignmentRole:
             if column in [0, 1, 5]:
-                return Qt.AlignmentFlag.AlignCenter
+                return Qt.AlignCenter
 
         return None
 
@@ -82,16 +83,15 @@ class AuditLogModel(QAbstractTableModel):
         self,
         section: int,
         orientation: Qt.Orientation,
-        role: int = Qt.ItemDataRole.DisplayRole,
+        role: int = Qt.DisplayRole,
     ):
         if (
-            role == Qt.ItemDataRole.DisplayRole
-            and orientation == Qt.Orientation.Horizontal
+            role == Qt.DisplayRole and orientation == Qt.Horizontal
         ):
             return self.headers[section]
         return None
 
-    def update_data(self, entries: list[AuditLogEntry]):
+    def update_data(self, entries: List[AuditLogEntry]):
         self.beginResetModel()
         self.entries = entries
         self.endResetModel()
@@ -182,7 +182,7 @@ class AuditLogViewer(QDialog):
     def export_csv(self):
         import csv
 
-        from PyQt6.QtWidgets import QFileDialog
+        from PyQt5.QtWidgets import QFileDialog
 
         file_path, _ = QFileDialog.getSaveFileName(
             self,

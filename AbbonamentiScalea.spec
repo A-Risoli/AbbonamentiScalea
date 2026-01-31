@@ -1,25 +1,29 @@
 # -*- mode: python ; coding: utf-8 -*-
-import os
 from PyInstaller.utils.hooks import collect_data_files
 
 datas = []
 datas += collect_data_files('matplotlib')
 
 
+block_cipher = None
+
+
 a = Analysis(
-    [os.path.join(os.getcwd(), 'abbonamenti', 'main.py')],
+    ['C:\\Users\\risol\\Documents\\GitHub\\AbbonamentiScalea\\abbonamenti\\main.py'],
     pathex=[],
     binaries=[],
     datas=datas,
-    hiddenimports=['matplotlib.backends.backend_qtagg', 'PyQt6.sip'],
+    hiddenimports=['matplotlib.backends.backend_qt5agg', 'PyQt5.sip'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['_pyinstaller_hooks_contrib'],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
     noarchive=False,
-    optimize=0,
 )
-pyz = PYZ(a.pure)
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
     pyz,
@@ -37,11 +41,12 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-        icon=[os.path.join(os.getcwd(), 'assets', 'icon.ico')] if os.path.exists(os.path.join(os.getcwd(), 'assets', 'icon.ico')) else None,
+    icon=['C:\\Users\\risol\\Documents\\GitHub\\AbbonamentiScalea\\assets\\icon.ico'],
 )
 coll = COLLECT(
     exe,
     a.binaries,
+    a.zipfiles,
     a.datas,
     strip=False,
     upx=True,

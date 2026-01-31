@@ -3,9 +3,10 @@
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import Dict, List, Tuple
 
-from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import (
+from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtWidgets import (
     QComboBox,
     QDialog,
     QFileDialog,
@@ -301,7 +302,7 @@ class ImportDialog(QDialog):
             # Show error dialog
             self.show_validation_errors(errors)
 
-    def show_validation_errors(self, errors: list[tuple[int, str, str]]):
+    def show_validation_errors(self, errors: List[Tuple[int, str, str]]):
         """Show validation errors in a dialog."""
         error_dialog = QDialog(self)
         error_dialog.setWindowTitle("Errori di Validazione")
@@ -348,11 +349,11 @@ class ImportDialog(QDialog):
         layout.addLayout(button_layout)
 
         error_dialog.setLayout(layout)
-        error_dialog.exec()
+        error_dialog.exec_()
 
     def copy_to_clipboard(self, text: str):
         """Copy text to clipboard."""
-        from PyQt6.QtWidgets import QApplication
+        from PyQt5.QtWidgets import QApplication
 
         clipboard = QApplication.clipboard()
         clipboard.setText(text)
@@ -374,7 +375,7 @@ class ImportDialog(QDialog):
             "Conferma Importazione",
             f"Confermi l'importazione di {total} abbonamenti?\n\n"
             f"Questa operazione non può essere annullata.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.Yes | QMessageBox.No,
             QMessageBox.StandardButton.No,
         )
 
@@ -442,7 +443,7 @@ class ImportDialog(QDialog):
         config_dir.mkdir(parents=True, exist_ok=True)
         return config_dir / "import_mappings.json"
 
-    def save_column_mappings(self, mappings: dict[str, str]):
+    def save_column_mappings(self, mappings: Dict[str, str]):
         """Save column mappings to config file."""
         try:
             config_path = self.get_mappings_file_path()

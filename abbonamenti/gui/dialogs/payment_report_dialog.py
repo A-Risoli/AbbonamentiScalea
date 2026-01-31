@@ -1,11 +1,11 @@
 """Payment Report Dialog for selecting period and generating PDF reports."""
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
-from PyQt6.QtWidgets import (
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import (
     QButtonGroup,
     QComboBox,
     QDateEdit,
@@ -362,7 +362,7 @@ class PaymentReportDialog(QDialog):
         except (ValueError, AttributeError):
             self.week_info_label.setText("")
 
-    def get_date_range(self) -> tuple[datetime, datetime, str, str]:
+    def get_date_range(self) -> Tuple[datetime, datetime, str, str]:
         """
         Get the date range based on selected period.
 
@@ -417,16 +417,10 @@ class PaymentReportDialog(QDialog):
             if self.week_radio.isChecked():
                 self.update_week_info()
 
-            # Debug: print the date range being used
-            print(f"DEBUG update_preview: date_from={date_from.isoformat()}, date_to={date_to.isoformat()}")
-
             # Get filtered statistics
             stats = self.db_manager.get_payment_statistics(
                 date_from=date_from, date_to=date_to
             )
-
-            # Debug: print the stats returned
-            print(f"DEBUG stats: {stats}")
 
             # Update cards
             self.total_card.update_value(f"{stats['total_revenue']:.2f} €")

@@ -2,17 +2,17 @@
 Statistics viewer dialog with payment analytics and charts
 """
 from datetime import datetime
-from typing import Optional
+from typing import Dict, List, Optional, Tuple
 
 import matplotlib
-matplotlib.use('QtAgg')
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+matplotlib.use('Qt5Agg')
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 
-from PyQt6.QtCore import Qt, pyqtSlot, QThread, pyqtSignal
-from PyQt6.QtGui import QFont
-from PyQt6.QtWidgets import (
+from PyQt5.QtCore import Qt, pyqtSlot, QThread, pyqtSignal
+from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import (
     QComboBox,
     QDialog,
     QGroupBox,
@@ -280,7 +280,7 @@ class StatisticsViewer(QDialog):
         """Handle filter changes"""
         self.load_statistics()
     
-    def get_filter_dates(self) -> tuple[Optional[int], Optional[int]]:
+    def get_filter_dates(self) -> Tuple[Optional[int], Optional[int]]:
         """Get year and month from filters"""
         year_text = self.year_combo.currentText()
         month_text = self.month_combo.currentText()
@@ -297,7 +297,7 @@ class StatisticsViewer(QDialog):
                 "Elaborating data...", None, 0, 0, self
             )
             self.progress_dialog.setWindowTitle("Caricamento Dati")
-            self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+            self.progress_dialog.setWindowModality(Qt.WindowModal)
             self.progress_dialog.setMinimumWidth(300)
             self.progress_dialog.setCancelButton(None)
             self.progress_dialog.setStyleSheet(get_stylesheet())
@@ -353,7 +353,7 @@ class StatisticsViewer(QDialog):
         self.loader_thread.error.connect(self.on_statistics_error)
         self.loader_thread.start()
     
-    def update_monthly_chart_with_data(self, monthly_data: list[tuple[str, float]]):
+    def update_monthly_chart_with_data(self, monthly_data: List[Tuple[str, float]]):
         """Update monthly revenue bar chart with provided data"""
         
         self.monthly_chart.clear()
@@ -362,9 +362,10 @@ class StatisticsViewer(QDialog):
         if monthly_data:
             months = [data[0] for data in monthly_data]
             revenues = [data[1] for data in monthly_data]
-            
+
+            x_positions = list(range(len(months)))
             colors = [get_color('primary') if r > 0 else '#BDBDBD' for r in revenues]
-            bars = ax.bar(months, revenues, color=colors, alpha=0.8)
+            bars = ax.bar(x_positions, revenues, color=colors, alpha=0.8)
             
             # Add value labels on bars
             for bar in bars:
@@ -374,6 +375,15 @@ class StatisticsViewer(QDialog):
                            f'€{height:,.0f}',
                            ha='center', va='bottom', fontsize=9)
             
+            # Thin x-axis labels to avoid overcrowding (aim for <= 10 labels)
+            max_labels = 10
+            step = max(1, len(months) // max_labels + (1 if len(months) % max_labels else 0))
+            tick_idx = list(range(0, len(months), step))
+            if tick_idx and tick_idx[-1] != len(months) - 1:
+                tick_idx.append(len(months) - 1)
+            ax.set_xticks(tick_idx)
+            ax.set_xticklabels([months[i] for i in tick_idx], rotation=45, ha='right')
+
             ax.set_xlabel('Mese', fontsize=11, fontweight='bold')
             ax.set_ylabel('Incassi (€)', fontsize=11, fontweight='bold')
             ax.set_title('Incassi Mensili', fontsize=13, fontweight='bold', pad=15)
@@ -388,7 +398,7 @@ class StatisticsViewer(QDialog):
         self.monthly_chart.figure.tight_layout()
         self.monthly_chart.draw()
     
-    def update_methods_chart_with_data(self, methods_data: dict[str, int]):
+    def update_methods_chart_with_data(self, methods_data: Dict[str, int]):
         """Update payment methods pie chart with provided data"""
         
         self.methods_chart.clear()
@@ -419,7 +429,7 @@ class StatisticsViewer(QDialog):
         self.methods_chart.figure.tight_layout()
         self.methods_chart.draw()
     
-    def update_trend_chart_with_data(self, trend_data: list[tuple[str, float]]):
+    def update_trend_chart_with_data(self, trend_data: List[Tuple[str, float]]):
         """Update revenue trend line chart with provided data"""
         
         self.trend_chart.clear()
@@ -459,7 +469,7 @@ class StatisticsViewer(QDialog):
         self.trend_chart.figure.tight_layout()
         self.trend_chart.draw()
     
-    def update_subscriptions_chart_with_data(self, subs_data: list[tuple[str, int]]):
+    def update_subscriptions_chart_with_data(self, subs_data: List[Tuple[str, int]]):
         """Update subscriptions per month chart with provided data"""
         
         self.subscriptions_chart.clear()
@@ -468,8 +478,9 @@ class StatisticsViewer(QDialog):
         if subs_data:
             months = [data[0] for data in subs_data]
             counts = [data[1] for data in subs_data]
-            
-            bars = ax.bar(months, counts, color=get_color('success'), alpha=0.8)
+
+            x_positions = list(range(len(months)))
+            bars = ax.bar(x_positions, counts, color=get_color('success'), alpha=0.8)
             
             # Add value labels on bars
             for bar in bars:
@@ -479,6 +490,15 @@ class StatisticsViewer(QDialog):
                            f'{int(height)}',
                            ha='center', va='bottom', fontsize=9)
             
+            # Thin x-axis labels to avoid overcrowding (aim for <= 10 labels)
+            max_labels = 10
+            step = max(1, len(months) // max_labels + (1 if len(months) % max_labels else 0))
+            tick_idx = list(range(0, len(months), step))
+            if tick_idx and tick_idx[-1] != len(months) - 1:
+                tick_idx.append(len(months) - 1)
+            ax.set_xticks(tick_idx)
+            ax.set_xticklabels([months[i] for i in tick_idx], rotation=45, ha='right')
+
             ax.set_xlabel('Mese', fontsize=11, fontweight='bold')
             ax.set_ylabel('Numero Abbonamenti', fontsize=11, fontweight='bold')
             ax.set_title('Abbonamenti Creati per Mese', fontsize=13, 

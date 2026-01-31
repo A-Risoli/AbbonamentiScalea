@@ -23,6 +23,8 @@ Sistema sicuro e affidabile per la gestione degli abbonamenti parcheggio del Com
 - **Python 3.13+**
 - **uv** (gestore pacchetti veloce) - [Installazione](https://docs.astral.sh/uv/)
 
+> **Nota Windows 7**: è disponibile un ramo compatibile Win7 con **Python 3.8**, **PyQt5** e dipendenze downgrade. Vedi la sezione "Windows 7" più sotto.
+
 ### Installazione Dipendenze
 
 ```bash
@@ -32,6 +34,30 @@ cd AbbonamentiScalea
 
 # Installa dipendenze con uv
 uv sync
+```
+
+## 🪟 Windows 7
+
+Per Windows 7 serve un ambiente separato:
+
+```bash
+# Pin Python 3.8 per il progetto
+uv python pin 3.8.18
+
+# Crea venv Win7
+uv venv -p 3.8.18 .venv-win7
+
+# Installa dipendenze compatibili
+.venv-win7\Scripts\python.exe -m pip install -U pip
+.venv-win7\Scripts\python.exe -m pip install \
+  cryptography==3.4.8 matplotlib==3.4.3 openpyxl==3.0.10 \
+  pyinstaller==4.10 python-telegram-bot==13.15 pyqt5==5.12.3 reportlab==3.6.12
+```
+
+Build installer (Win7):
+
+```bat
+create_installer.bat
 ```
 
 ## 🏃 Esecuzione
@@ -179,7 +205,7 @@ Per creare un installer Windows con wizard di installazione:
 ```iss
 [Setup]
 AppName=AbbonamentiScalea
-AppVersion=0.3.0
+AppVersion=0.3.0.7
 DefaultDirName={autopf}\AbbonamentiScalea
 DefaultGroupName=Comune di Scalea
 OutputDir=installer_output
@@ -285,7 +311,7 @@ Questo progetto è sviluppato per il Comune di Scalea.
 
 **Risoli Antonio**  
 Sistema Abbonamenti Città di Scalea  
-Versione 0.3.0
+Versione 0.3.0.7
 
 ## 🆘 Supporto
 

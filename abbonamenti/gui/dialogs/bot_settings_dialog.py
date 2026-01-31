@@ -1,9 +1,7 @@
 """Bot settings dialog for configuring Telegram bot."""
 
-import asyncio
-
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import (
+from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtWidgets import (
     QCheckBox,
     QDialog,
     QFormLayout,
@@ -252,19 +250,11 @@ class BotSettingsDialog(QDialog):
             )
             return
 
-        # Test connection in async context
+        # Test connection synchronously
         try:
-            # Create new event loop for this test
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            async def test():
-                bot = Bot(token=token)
-                me = await bot.get_me()
-                return me.username
-
-            username = loop.run_until_complete(test())
-            loop.close()
+            bot = Bot(token=token)
+            me = bot.get_me()
+            username = me.username
 
             QMessageBox.information(
                 self,

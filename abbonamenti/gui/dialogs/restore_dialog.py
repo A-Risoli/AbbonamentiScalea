@@ -4,8 +4,8 @@ Restore dialog for restoring encrypted database backups
 from pathlib import Path
 import hashlib
 
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtWidgets import (
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from PyQt5.QtWidgets import (
     QDialog,
     QVBoxLayout,
     QHBoxLayout,
@@ -192,7 +192,7 @@ class RestoreDialog(QDialog):
             "Sei sicuro di voler ripristinare il backup?\n\n"
             "Il database e le chiavi correnti verranno sostituiti!\n"
             "Un backup automatico dei file correnti verrà creato prima del ripristino.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.Yes | QMessageBox.No,
             QMessageBox.StandardButton.No
         )
         

@@ -4,7 +4,12 @@ import logging
 import sys
 
 from abbonamenti.bot.config import BotConfig
-from abbonamenti.bot.handlers import check_handler, initialize_handlers, myid_handler
+from abbonamenti.bot.handlers import (
+    check_handler,
+    handle_message,
+    initialize_handlers,
+    myid_handler,
+)
 from abbonamenti.bot.logger import BotQueryLogger
 from abbonamenti.bot.rate_limiter import RateLimiter
 from abbonamenti.database.manager import DatabaseManager
@@ -63,13 +68,15 @@ def main():
 
     # Build and run application
     try:
-        from telegram.ext import ApplicationBuilder, CommandHandler
+        from telegram.ext import CommandHandler, Filters, MessageHandler, Updater
 
-        application = ApplicationBuilder().token(token).build()
+        updater = Updater(token=token, use_context=True)
+        dispatcher = updater.dispatcher
 
         # Add command handlers
-        application.add_handler(CommandHandler("myid", myid_handler))
-        application.add_handler(CommandHandler("check", check_handler))
+        dispatcher.add_handler(CommandHandler("myid", myid_handler))
+        dispatcher.add_handler(CommandHandler("check", check_handler))
+        dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
 
         print("✓ Bot inizializzato")
         print("\nComandi disponibili:")
@@ -78,7 +85,8 @@ def main():
         print("\n🚀 Bot in esecuzione... (Ctrl+C per terminare)\n")
 
         # Run polling (blocking)
-        application.run_polling(allowed_updates=["message"])
+        updater.start_polling(allowed_updates=["message"])
+        updater.idle()
 
     except KeyboardInterrupt:
         print("\n\n⏹️ Bot arrestato dall'utente")

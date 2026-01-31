@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Tuple
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding, rsa, serialization
@@ -17,7 +18,7 @@ class KeyManager:
         self._private_key: rsa.RSAPrivateKey = self._load_or_generate_keys()[0]
         self._public_key: rsa.RSAPublicKey = self._load_or_generate_keys()[1]
 
-    def _load_or_generate_keys(self) -> tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey]:
+    def _load_or_generate_keys(self) -> Tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey]:
         private_key_path = self.keys_dir / "private_key.pem"
         public_key_path = self.keys_dir / "public_key.pem"
 

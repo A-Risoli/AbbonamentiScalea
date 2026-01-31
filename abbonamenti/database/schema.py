@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import Dict, List, Optional
 
 
 @dataclass
@@ -18,7 +18,7 @@ class Subscription:
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, object]:
         return {
             "protocol_id": self.protocol_id,
             "owner_name": self.owner_name,
@@ -51,7 +51,7 @@ class AuditLogEntry:
 
 class Schema:
     @staticmethod
-    def get_create_tables_sql() -> list[str]:
+    def get_create_tables_sql() -> List[str]:
         return [
             Schema._subscriptions_table(),
             Schema._audit_log_table(),
@@ -59,7 +59,7 @@ class Schema:
         ]
 
     @staticmethod
-    def get_create_indexes_sql() -> list[str]:
+    def get_create_indexes_sql() -> List[str]:
         return [
             Schema._subscriptions_indexes(),
             Schema._audit_log_indexes(),

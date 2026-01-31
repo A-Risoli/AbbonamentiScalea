@@ -3,7 +3,7 @@
 from functools import wraps
 
 from telegram import Update
-from telegram.ext import ContextTypes
+from telegram.ext import CallbackContext
 
 from abbonamenti.bot.config import BotConfig
 
@@ -17,12 +17,12 @@ def require_authorized(func):
 
     Usage:
         @require_authorized
-        async def my_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        def my_handler(update: Update, context: CallbackContext):
             # Handler code here
     """
 
     @wraps(func)
-    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    def wrapper(update: Update, context: CallbackContext):
         # Load config to get allowed user IDs
         config = BotConfig.load_config()
 
@@ -32,10 +32,10 @@ def require_authorized(func):
         # Check authorization
         if user_id not in config.allowed_user_ids:
             if update.message:
-                await update.message.reply_text("⛔ Accesso Negato")
+                update.message.reply_text("⛔ Accesso Negato")
             return
 
         # User is authorized, proceed with handler
-        return await func(update, context)
+        return func(update, context)
 
     return wrapper

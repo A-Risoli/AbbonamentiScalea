@@ -19,11 +19,15 @@ if not exist "%ISCC_PATH%" (
     exit /b 1
 )
 
+REM Build using main virtual environment
+echo Running PyInstaller build...
+python build_installer.py
+
 REM Check if dist folder exists
 if not exist "dist\AbbonamentiScalea" (
     echo ERROR: dist\AbbonamentiScalea folder not found!
     echo.
-    echo Please run: python build_installer.py
+    echo Build failed or not run. Please check build_installer.py output.
     echo.
     pause
     exit /b 1
@@ -40,7 +44,7 @@ if %ERRORLEVEL% EQU 0 (
     echo SUCCESS! Installer created!
     echo ============================================
     echo.
-    echo Output: installer_output\AbbonamentiScalea-Setup-0.3.0.exe
+    echo Output: installer_output\AbbonamentiScalea-Setup-0.3.0.7.exe
     echo.
     echo You can now distribute this single installer file.
     echo.

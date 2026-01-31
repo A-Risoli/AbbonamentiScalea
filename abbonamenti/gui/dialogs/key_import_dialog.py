@@ -7,7 +7,7 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-from PyQt6.QtWidgets import (
+from PyQt5.QtWidgets import (
     QDialog,
     QFileDialog,
     QFormLayout,
@@ -211,7 +211,7 @@ class KeyImportDialog(QDialog):
                 self,
                 "Aprire la cartella?",
                 "Vuoi aprire la cartella delle chiavi?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.StandardButton.No,
             )
             if reply == QMessageBox.StandardButton.Yes:

@@ -1,15 +1,16 @@
 from datetime import datetime
+from typing import List, Optional
 
-from PyQt6.QtCore import QAbstractTableModel, QModelIndex, Qt
-from PyQt6.QtGui import QColor
+from PyQt5.QtCore import QAbstractTableModel, QModelIndex, Qt
+from PyQt5.QtGui import QColor
 
 from abbonamenti.database.schema import Subscription
 
 
 class SubscriptionsTableModel(QAbstractTableModel):
-    def __init__(self, subscriptions: list[Subscription] | None = None):
+    def __init__(self, subscriptions: Optional[List[Subscription]] = None):
         super().__init__()
-        self.subscriptions: list[Subscription] = (
+        self.subscriptions: List[Subscription] = (
             [] if subscriptions is None else subscriptions
         )
         self.headers = [
@@ -26,7 +27,7 @@ class SubscriptionsTableModel(QAbstractTableModel):
             "Stato",
         ]
         self.sort_column = 0
-        self.sort_order = Qt.SortOrder.AscendingOrder
+        self.sort_order = Qt.AscendingOrder
 
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
         return len(self.subscriptions)
@@ -34,14 +35,14 @@ class SubscriptionsTableModel(QAbstractTableModel):
     def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:
         return len(self.headers)
 
-    def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
+    def data(self, index: QModelIndex, role: int = Qt.DisplayRole):
         if not index.isValid():
             return None
 
         subscription = self.subscriptions[index.row()]
         column = index.column()
 
-        if role == Qt.ItemDataRole.DisplayRole:
+        if role == Qt.DisplayRole:
             if column == 0:
                 return subscription.protocol_id
             elif column == 1:
@@ -65,7 +66,7 @@ class SubscriptionsTableModel(QAbstractTableModel):
             elif column == 10:
                 return self._get_status(subscription)
 
-        elif role == Qt.ItemDataRole.BackgroundRole:
+        elif role == Qt.BackgroundRole:
             if column == 10:
                 status = self._get_status(subscription)
                 if status == "Attivo":
@@ -77,9 +78,9 @@ class SubscriptionsTableModel(QAbstractTableModel):
                 elif status == "Non ancora attivo":
                     return QColor(220, 220, 255)
 
-        elif role == Qt.ItemDataRole.TextAlignmentRole:
+        elif role == Qt.TextAlignmentRole:
             if column in [6, 7, 8, 9, 10]:
-                return Qt.AlignmentFlag.AlignCenter
+                return Qt.AlignCenter
 
         return None
 
@@ -87,11 +88,10 @@ class SubscriptionsTableModel(QAbstractTableModel):
         self,
         section: int,
         orientation: Qt.Orientation,
-        role: int = Qt.ItemDataRole.DisplayRole,
+        role: int = Qt.DisplayRole,
     ):
         if (
-            role == Qt.ItemDataRole.DisplayRole
-            and orientation == Qt.Orientation.Horizontal
+            role == Qt.DisplayRole and orientation == Qt.Horizontal
         ):
             return self.headers[section]
         return None
@@ -110,14 +110,14 @@ class SubscriptionsTableModel(QAbstractTableModel):
         else:
             return "Attivo"
 
-    def update_data(self, subscriptions: list[Subscription]):
+    def update_data(self, subscriptions: List[Subscription]):
         self.beginResetModel()
         self.subscriptions = subscriptions
         self.endResetModel()
 
-    def sort(self, column: int, order: Qt.SortOrder = Qt.SortOrder.AscendingOrder):
+    def sort(self, column: int, order: int = Qt.AscendingOrder):
         """Sort table by column while preserving current data."""
-        reverse = order == Qt.SortOrder.DescendingOrder
+        reverse = order == Qt.DescendingOrder
 
         def sort_key(sub: Subscription):
             if column == 0:

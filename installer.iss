@@ -7,7 +7,7 @@
 ; 3. Output will be in installer_output/
 
 #define MyAppName "AbbonamentiScalea"
-#define MyAppVersion "0.3.0"
+#define MyAppVersion "0.3.0.7"
 #define MyAppPublisher "Comune di Scalea"
 #define MyAppExeName "AbbonamentiScalea.exe"
 #define MyAppAssocName MyAppName + " Database"
@@ -30,10 +30,10 @@ Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
 
-; Windows version requirements
-MinVersion=10.0.17763
-ArchitecturesAllowed=x64
-ArchitecturesInstallIn64BitMode=x64
+; Windows version requirements (Windows 7+)
+MinVersion=6.1sp1
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
 
 ; Privileges
 PrivilegesRequired=lowest
@@ -49,7 +49,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1; Check: not IsAdminInstallMode
+Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
 ; Main application files (assuming --onedir build)

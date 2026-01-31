@@ -3,8 +3,8 @@ Backup dialog for creating encrypted database backups
 """
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtWidgets import (
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from PyQt5.QtWidgets import (
     QDialog,
     QVBoxLayout,
     QHBoxLayout,
@@ -303,7 +303,7 @@ class BackupDialog(QDialog):
                     "Scheda Generata",
                     "La scheda di recupero è stata generata e aperta.\n\n"
                     "Vuoi aprire la cartella dei backup?",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.Yes | QMessageBox.No,
                     QMessageBox.StandardButton.No
                 )
                 

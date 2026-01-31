@@ -2,6 +2,7 @@
 
 import time
 from collections import defaultdict, deque
+from typing import Deque, Dict
 
 
 class RateLimiter:
@@ -17,7 +18,7 @@ class RateLimiter:
         """
         self.max_requests = max_requests
         self.window_seconds = window_seconds
-        self.user_requests: dict[int, deque[float]] = defaultdict(deque)
+        self.user_requests: Dict[int, Deque[float]] = defaultdict(deque)
 
     def is_allowed(self, user_id: int) -> bool:
         """

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Build script for AbbonamentiScalea Windows installer using PyInstaller.
 
 This script automates the process of building a standalone Windows executable
 for the Abbonamenti application. It handles all necessary PyInstaller options
-for bundling PyQt6 and matplotlib dependencies.
+for bundling PyQt5 and matplotlib dependencies.
 
 Usage:
     python build_installer.py [--onefile] [--debug]
@@ -18,7 +19,11 @@ import argparse
 import shutil
 import subprocess
 import sys
+import io
 from pathlib import Path
+
+# Force UTF-8 output on Windows
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 
 def main():
@@ -47,11 +52,11 @@ def main():
     dist_dir = project_root / "dist"
     build_dir = project_root / "build"
     
-    print("🧹 Cleaning previous builds...")
+    print("[*] Cleaning previous builds...")
     for directory in [dist_dir, build_dir]:
         if directory.exists():
             shutil.rmtree(directory)
-            print(f"   Removed {directory}")
+            print(f"    Removed {directory}")
 
     # Build PyInstaller command (use uv run to ensure correct environment)
     cmd = [
@@ -67,23 +72,27 @@ def main():
     # Add onefile or onedir
     if args.onefile:
         cmd.append("--onefile")
-        print("📦 Building single .exe file (slower startup)...")
+        print("[*] Building single .exe file (slower startup)...")
     else:
         cmd.append("--onedir")
-        print("📦 Building application bundle (faster startup, recommended)...")
+        print("[*] Building application bundle (faster startup, recommended)...")
 
     # Add windowed or console
     if args.debug:
-        print("🐛 Debug mode: console window enabled")
+        print("[DEBUG] Console window enabled")
     else:
         cmd.append("--windowed")
-        print("🖼️  Windowed mode: no console window")
+        print("[*] Windowed mode: no console window")
 
-    # Hidden imports for matplotlib
+    # Hidden imports for matplotlib + PyQt5
     cmd.extend([
-        "--hidden-import=matplotlib.backends.backend_qtagg",
-        "--hidden-import=PyQt6.sip",
+        "--hidden-import=matplotlib.backends.backend_qt5agg",
+        "--hidden-import=PyQt5.sip",
     ])
+
+    # Disable problematic cryptography hooks for PyInstaller compatibility
+    # These hooks can cause issues with certain PyInstaller/cryptography version combinations
+    cmd.append("--exclude-module=_pyinstaller_hooks_contrib")
 
     # Collect matplotlib data files
     cmd.append("--collect-data=matplotlib")
@@ -99,26 +108,26 @@ def main():
     # Add main script
     cmd.append(str(main_script))
 
-    print(f"\n🔨 Running PyInstaller...")
-    print(f"   Command: {' '.join(cmd)}\n")
+    print(f"\n[*] Running PyInstaller...")
+    print(f"    Command: {' '.join(cmd)}\n")
     
     try:
         result = subprocess.run(cmd, cwd=project_root, check=True)
         
         print("\n" + "=" * 60)
-        print("✅ Build successful!")
+        print("[OK] Build successful!")
         print("=" * 60)
         
         if args.onefile:
             exe_path = dist_dir / "AbbonamentiScalea.exe"
-            print(f"\n📍 Executable: {exe_path}")
-            print(f"   Size: {exe_path.stat().st_size / (1024 * 1024):.1f} MB")
+            print(f"\n[*] Executable: {exe_path}")
+            print(f"    Size: {exe_path.stat().st_size / (1024 * 1024):.1f} MB")
         else:
             exe_path = dist_dir / "AbbonamentiScalea" / "AbbonamentiScalea.exe"
-            print(f"\n📍 Application bundle: {dist_dir / 'AbbonamentiScalea'}")
-            print(f"   Executable: {exe_path}")
+            print(f"\n[*] Application bundle: {dist_dir / 'AbbonamentiScalea'}")
+            print(f"    Executable: {exe_path}")
             if exe_path.exists():
-                print(f"   Size: {exe_path.stat().st_size / (1024 * 1024):.1f} MB")
+                print(f"    Size: {exe_path.stat().st_size / (1024 * 1024):.1f} MB")
         
         print("\n📋 Next steps:")
         print("   1. Test the executable by running it")

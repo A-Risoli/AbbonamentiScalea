@@ -1,17 +1,17 @@
 [project]
 name = "abbonamenti"
-version = "0.3.0"
+version = "0.3.0.7"
 description = "Secure subscription archiving system for municipal police office"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.8,<3.9"
 dependencies = [
-    "cryptography>=46.0.3",
-    "matplotlib>=3.10.8",
-    "openpyxl>=3.1.0",
-    "pyinstaller>=6.18.0",
-    "python-telegram-bot[all]>=21.0",
-    "pyqt6>=6.10.2",
-    "reportlab>=4.0.0",
+    "cryptography==3.4.8",
+    "matplotlib==3.5.3",
+    "openpyxl==3.0.10",
+    "pyinstaller==5.13.2",
+    "python-telegram-bot==13.15",
+    "pyqt5==5.15.2",
+    "reportlab==3.6.12",
 ]
 
 [project.scripts]
@@ -24,7 +24,7 @@ build-backend = "hatchling.build"
 
 [tool.ruff]
 line-length = 88
-target-version = "py313"
+target-version = "py38"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]

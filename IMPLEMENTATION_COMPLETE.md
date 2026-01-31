@@ -138,7 +138,7 @@ async def test_start_handler():
 
 ## 🔐 Security Maintained
 
-✅ Token encryption: AES-256 (CryptoManager)  
+✅ Token encryption: Fernet (CryptoManager)  
 ✅ Authorization: @require_authorized decorator on plate checks  
 ✅ Rate limiting: 20 requests/minute sliding window  
 ✅ Audit logging: JSONL format with query metadata  

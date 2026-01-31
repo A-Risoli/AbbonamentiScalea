@@ -8,7 +8,7 @@ from __future__ import annotations
 from string import Template
 from typing import Dict
 
-from PyQt6.QtGui import QGuiApplication, QPalette
+from PyQt5.QtGui import QGuiApplication, QPalette
 
 
 # Authentic Scalea Color Palette 2026 - Based on Official Municipal Identity

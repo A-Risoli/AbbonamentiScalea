@@ -5,8 +5,8 @@ from pathlib import Path
 import zipfile
 import os
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import (
     QDialog,
     QVBoxLayout,
     QHBoxLayout,
@@ -303,7 +303,7 @@ class KeyExportDialog(QDialog):
                     "Scheda Generata",
                     "La scheda di recupero è stata generata e aperta.\n\n"
                     "Vuoi aprire la cartella dove sono state salvate le chiavi?",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.Yes | QMessageBox.No,
                     QMessageBox.StandardButton.No
                 )
                 
