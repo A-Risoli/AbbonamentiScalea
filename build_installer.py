@@ -88,6 +88,8 @@ def main():
     cmd.extend([
         "--hidden-import=matplotlib.backends.backend_qt5agg",
         "--hidden-import=PyQt5.sip",
+        "--hidden-import=backports",
+        "--hidden-import=backports.tarfile",
     ])
 
     # Disable problematic cryptography hooks for PyInstaller compatibility
