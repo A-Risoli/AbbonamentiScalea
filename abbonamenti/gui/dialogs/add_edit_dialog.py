@@ -24,6 +24,11 @@ from abbonamenti.database.schema import Subscription
 from abbonamenti.gui.styles import get_stylesheet, get_color
 
 
+class NoWheelDoubleSpinBox(QDoubleSpinBox):
+    def wheelEvent(self, event):
+        event.ignore()
+
+
 class AddEditSubscriptionDialog(QDialog):
     def __init__(self, parent=None, subscription: Optional[Subscription] = None):
         super().__init__(parent)
@@ -150,7 +155,7 @@ class AddEditSubscriptionDialog(QDialog):
             self.payment_method_combo.setCurrentText(self.subscription.payment_method)
         payment_layout.addRow("Metodo di Pagamento *:", self.payment_method_combo)
 
-        self.payment_amount_input = QDoubleSpinBox()
+        self.payment_amount_input = NoWheelDoubleSpinBox()
         self.payment_amount_input.setRange(0.00, 999999.99)
         self.payment_amount_input.setDecimals(2)
         self.payment_amount_input.setSuffix(" €")
