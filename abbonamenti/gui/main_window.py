@@ -115,6 +115,7 @@ class MainWindow(QMainWindow):
         self.create_central_widget()
         self.create_status_bar()
         self.create_system_tray()
+        self.showMaximized()
 
     def create_menubar(self):
         menubar = self.menuBar()

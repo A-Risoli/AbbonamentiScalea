@@ -10,11 +10,13 @@ from PyQt5.QtWidgets import (
     QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QFrame,
     QScrollArea,
     QVBoxLayout,
     QWidget,
@@ -39,21 +41,24 @@ class AddEditSubscriptionDialog(QDialog):
         self.setWindowTitle(
             "Nuovo Abbonamento" if self.subscription is None else "Modifica Abbonamento"
         )
-        self.setMinimumWidth(600)
-        self.setMinimumHeight(700)
+        self.setMinimumSize(900, 700)
         self.setStyleSheet(get_stylesheet())
 
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(16, 16, 16, 16)
-        main_layout.setSpacing(12)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(16)
 
         # Scroll area for better UX with long forms
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
         scroll_widget = QWidget()
-        scroll_layout = QVBoxLayout(scroll_widget)
+        scroll_layout = QGridLayout(scroll_widget)
         scroll_layout.setContentsMargins(0, 0, 0, 0)
-        scroll_layout.setSpacing(12)
+        scroll_layout.setHorizontalSpacing(20)
+        scroll_layout.setVerticalSpacing(16)
+        scroll_layout.setColumnStretch(0, 1)
+        scroll_layout.setColumnStretch(1, 1)
 
         # Info Group
         info_group = QGroupBox("Informazioni Generali")
@@ -85,7 +90,7 @@ class AddEditSubscriptionDialog(QDialog):
             self.license_plate_input.setText(self.subscription.license_plate)
         info_layout.addRow("Targa *:", self.license_plate_input)
 
-        scroll_layout.addWidget(info_group)
+        scroll_layout.addWidget(info_group, 0, 0)
 
         # Contact Group
         contact_group = QGroupBox("Dati di Contatto")
@@ -110,7 +115,7 @@ class AddEditSubscriptionDialog(QDialog):
             self.mobile_input.setText(self.subscription.mobile)
         contact_layout.addRow("Cellulare:", self.mobile_input)
 
-        scroll_layout.addWidget(contact_group)
+        scroll_layout.addWidget(contact_group, 0, 1)
 
         # Dates Group
         dates_group = QGroupBox("Periodo di Validità")
@@ -142,7 +147,7 @@ class AddEditSubscriptionDialog(QDialog):
             )
         dates_layout.addRow("Data Fine *:", self.end_date_input)
 
-        scroll_layout.addWidget(dates_group)
+        scroll_layout.addWidget(dates_group, 1, 0)
 
         # Payment Group
         payment_group = QGroupBox("Informazioni Pagamento")
@@ -164,7 +169,7 @@ class AddEditSubscriptionDialog(QDialog):
             self.payment_amount_input.setValue(self.subscription.payment_details)
         payment_layout.addRow("Importo Pagato *:", self.payment_amount_input)
 
-        scroll_layout.addWidget(payment_group)
+        scroll_layout.addWidget(payment_group, 1, 1)
 
         # Reason Group
         reason_group = QGroupBox("Motivo della Modifica")
@@ -184,8 +189,7 @@ class AddEditSubscriptionDialog(QDialog):
             self.reason_input.setText("Inserimento nuovo abbonamento")
         reason_layout.addWidget(self.reason_input)
 
-        scroll_layout.addWidget(reason_group)
-        scroll_layout.addStretch()
+        scroll_layout.addWidget(reason_group, 2, 0, 1, 2)
 
         scroll.setWidget(scroll_widget)
         main_layout.addWidget(scroll)
