@@ -945,7 +945,7 @@ class MainWindow(QMainWindow):
             "\n\nRisoli Antonio\n\n"
             "Sistema Abbonamenti Città di Scalea\n\n"
             "Sicuro, affidabile, facile da usare.\n\n"
-            "Versione 0.3.0.7",
+            "Versione 0.3.1.7",
         )
 
     def closeEvent(self, event):

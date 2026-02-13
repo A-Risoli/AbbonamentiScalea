@@ -1,6 +1,6 @@
 [project]
 name = "abbonamenti"
-version = "0.3.0.7"
+version = "0.3.1.7"
 description = "Secure subscription archiving system for municipal police office"
 readme = "README.md"
 requires-python = ">=3.8,<3.9"

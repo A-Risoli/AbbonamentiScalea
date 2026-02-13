@@ -205,7 +205,7 @@ Per creare un installer Windows con wizard di installazione:
 ```iss
 [Setup]
 AppName=AbbonamentiScalea
-AppVersion=0.3.0.7
+AppVersion=0.3.1.7
 DefaultDirName={autopf}\AbbonamentiScalea
 DefaultGroupName=Comune di Scalea
 OutputDir=installer_output
@@ -311,7 +311,7 @@ Questo progetto è sviluppato per il Comune di Scalea.
 
 **Risoli Antonio**  
 Sistema Abbonamenti Città di Scalea  
-Versione 0.3.0.7
+Versione 0.3.1.7
 
 ## 🆘 Supporto
 
